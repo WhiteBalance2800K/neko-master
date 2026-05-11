@@ -9,11 +9,21 @@ import { BatchBuffer } from "./batch-buffer.js";
 // Stale connection cleanup constants
 const STALE_CONNECTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 const CLEANUP_INTERVAL = 2 * 60 * 1000; // 2 minutes
+const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = Math.max(
+  5_000,
+  Number.parseInt(process.env.GATEWAY_WS_HEARTBEAT_INTERVAL_MS || "15000", 10) || 15_000,
+);
+const DEFAULT_WS_HEARTBEAT_TIMEOUT_MS = Math.max(
+  DEFAULT_WS_HEARTBEAT_INTERVAL_MS * 2,
+  Number.parseInt(process.env.GATEWAY_WS_HEARTBEAT_TIMEOUT_MS || "45000", 10) || 45_000,
+);
 
 export interface CollectorOptions {
   url: string;
   token?: string;
   reconnectInterval?: number;
+  heartbeatInterval?: number;
+  heartbeatTimeout?: number;
   onData?: (data: ConnectionsData) => void;
   onError?: (error: Error) => void;
 }
@@ -26,14 +36,21 @@ export class GatewayCollector {
   private onData?: (data: ConnectionsData) => void;
   private onError?: (error: Error) => void;
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
   private isClosing = false;
   private backendId: number;
+  private heartbeatInterval: number;
+  private heartbeatTimeout: number;
+  private lastPongAt = 0;
+  private lastMessageAt = 0;
 
   constructor(backendId: number, options: CollectorOptions) {
     this.backendId = backendId;
     this.url = options.url;
     this.token = options.token;
     this.reconnectInterval = options.reconnectInterval || 5000;
+    this.heartbeatInterval = options.heartbeatInterval || DEFAULT_WS_HEARTBEAT_INTERVAL_MS;
+    this.heartbeatTimeout = options.heartbeatTimeout || DEFAULT_WS_HEARTBEAT_TIMEOUT_MS;
     this.onData = options.onData;
     this.onError = options.onError;
   }
@@ -53,16 +70,21 @@ export class GatewayCollector {
       headers["Authorization"] = `Bearer ${this.token}`;
     }
 
-    this.ws = new WebSocket(this.url, {
+    const ws = new WebSocket(this.url, {
       headers,
       followRedirects: true,
     });
+    this.ws = ws;
 
-    this.ws.on("open", () => {
+    ws.on("open", () => {
       console.log(`[Collector:${this.backendId}] WebSocket connected`);
+      this.lastPongAt = Date.now();
+      this.lastMessageAt = this.lastPongAt;
+      this.startHeartbeat();
     });
 
-    this.ws.on("message", (data: WebSocket.Data) => {
+    ws.on("message", (data: WebSocket.Data) => {
+      this.lastMessageAt = Date.now();
       try {
         const json = JSON.parse(data.toString()) as ConnectionsData;
         this.onData?.(json);
@@ -74,7 +96,11 @@ export class GatewayCollector {
       }
     });
 
-    this.ws.on("error", (err) => {
+    ws.on("pong", () => {
+      this.lastPongAt = Date.now();
+    });
+
+    ws.on("error", (err) => {
       console.error(
         `[Collector:${this.backendId}] WebSocket error:`,
         err.message,
@@ -82,10 +108,14 @@ export class GatewayCollector {
       this.onError?.(err);
     });
 
-    this.ws.on("close", (code, reason) => {
+    ws.on("close", (code, reason) => {
       console.log(
         `[Collector:${this.backendId}] WebSocket closed: ${code} ${reason}`,
       );
+      this.stopHeartbeat();
+      if (this.ws === ws) {
+        this.ws = null;
+      }
       if (!this.isClosing) {
         this.scheduleReconnect();
       }
@@ -103,12 +133,57 @@ export class GatewayCollector {
     }, this.reconnectInterval);
   }
 
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      this.checkHeartbeat();
+    }, this.heartbeatInterval);
+    this.heartbeatTimer.unref?.();
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private checkHeartbeat() {
+    if (this.isClosing || !this.ws) return;
+
+    const ws = this.ws;
+    if (ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const now = Date.now();
+    const lastSeenAt = Math.max(this.lastPongAt, this.lastMessageAt);
+    if (now - lastSeenAt > this.heartbeatTimeout) {
+      console.warn(
+        `[Collector:${this.backendId}] WebSocket heartbeat timed out after ${now - lastSeenAt}ms; reconnecting`,
+      );
+      ws.terminate();
+      return;
+    }
+
+    try {
+      ws.ping();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.warn(
+        `[Collector:${this.backendId}] WebSocket heartbeat ping failed: ${error.message}`,
+      );
+      ws.terminate();
+    }
+  }
+
   disconnect() {
     this.isClosing = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.stopHeartbeat();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -131,6 +206,8 @@ interface TrackedConnection {
   totalDownload: number;
   counted: boolean;
   sourceIP?: string;
+  process?: string;
+  processPath?: string;
   lastSeen: number;
 }
 
@@ -309,6 +386,8 @@ export function createCollector(
         const domain = metadata.host || metadata.sniffHost || "";
         const ip = metadata.destinationIP || "";
         const sourceIP = metadata.sourceIP || "";
+        const processName = metadata.process || "";
+        const processPath = metadata.processPath || "";
         const chains = Array.isArray(conn.chains) ? conn.chains : ["DIRECT"];
         const rule = conn.rule || "Match";
         const rulePayload = conn.rulePayload || "";
@@ -331,6 +410,8 @@ export function createCollector(
             totalDownload: conn.download,
             counted: hasInitialTraffic,
             sourceIP,
+            process: processName,
+            processPath,
             lastSeen: now,
           });
 
@@ -348,6 +429,8 @@ export function createCollector(
               download: conn.download,
               connections,
               sourceIP,
+              process: processName,
+              processPath,
               timestampMs: now,
             });
             realtimeStore.recordTraffic(
@@ -361,6 +444,8 @@ export function createCollector(
                 rulePayload,
                 upload: conn.upload,
                 download: conn.download,
+                process: processName,
+                processPath,
               },
               connections,
               now
@@ -410,6 +495,8 @@ export function createCollector(
               download: downloadDelta,
               connections,
               sourceIP: existing.sourceIP,
+              process: existing.process,
+              processPath: existing.processPath,
               timestampMs: now,
             });
             realtimeStore.recordTraffic(
@@ -423,6 +510,8 @@ export function createCollector(
                 rulePayload: existing.rulePayload || '',
                 upload: uploadDelta,
                 download: downloadDelta,
+                process: existing.process,
+                processPath: existing.processPath,
               },
               connections,
               now

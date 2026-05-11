@@ -34,6 +34,8 @@ type trackedFlow struct {
 	Chains      []string
 	Rule        string
 	RulePayload string
+	Process     string
+	ProcessPath string
 }
 
 type reportPayload struct {
@@ -433,6 +435,8 @@ func (r *Runner) ingestSnapshots(snapshots []domain.FlowSnapshot, nowMs int64) {
 		chains := normalizeChains(s.Chains)
 		rule := defaultString(strings.TrimSpace(s.Rule), "Match")
 		rulePayload := strings.TrimSpace(s.RulePayload)
+		processName := strings.TrimSpace(s.Process)
+		processPath := strings.TrimSpace(s.ProcessPath)
 		if hasPrev {
 			// Keep per-flow metadata stable once first seen, matching direct mode
 			// semantics in collector (existing connection fields are reused).
@@ -442,6 +446,8 @@ func (r *Runner) ingestSnapshots(snapshots []domain.FlowSnapshot, nowMs int64) {
 			chains = cloneStringSlice(prev.Chains)
 			rule = defaultString(prev.Rule, "Match")
 			rulePayload = prev.RulePayload
+			processName = prev.Process
+			processPath = prev.ProcessPath
 		}
 
 		deltaUp := s.Upload
@@ -476,6 +482,8 @@ func (r *Runner) ingestSnapshots(snapshots []domain.FlowSnapshot, nowMs int64) {
 			Chains:      cloneStringSlice(chains),
 			Rule:        rule,
 			RulePayload: rulePayload,
+			Process:     processName,
+			ProcessPath: processPath,
 		}
 		if deltaUp <= 0 && deltaDown <= 0 {
 			continue
@@ -497,6 +505,8 @@ func (r *Runner) ingestSnapshots(snapshots []domain.FlowSnapshot, nowMs int64) {
 			Download:    deltaDown,
 			Connections: connections,
 			SourceIP:    sourceIP,
+			Process:     processName,
+			ProcessPath: processPath,
 			TimestampMs: ts,
 		})
 	}

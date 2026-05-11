@@ -6,11 +6,12 @@ import {
   keepPreviousData,
   useQuery,
 } from "@tanstack/react-query";
-import { BarChart3, Link2 } from "lucide-react";
-import { StatsCards, TopDomainsChart } from "@/components/features/stats";
+import { BarChart3, Link2, Settings } from "lucide-react";
+import { StatsCards } from "@/components/features/stats";
 import { OverviewTab } from "@/components/overview";
 import { InteractiveProxyStats } from "@/components/features/proxies";
 import { InteractiveDeviceStats } from "@/components/features/devices";
+import { InteractiveProcessStats } from "@/components/features/processes";
 import { InteractiveRuleStats } from "@/components/features/rules";
 import { HealthContent } from "@/components/features/health";
 import { WorldTrafficMap, CountryTrafficList } from "@/components/features/countries";
@@ -22,15 +23,40 @@ import { InsightThreePanelSkeleton } from "@/components/ui/insight-skeleton";
 import { api, type TimeRange } from "@/lib/api";
 import { getDevicesQueryKey } from "@/lib/stats-query-keys";
 import { useStableTimeRange } from "@/lib/hooks/use-stable-time-range";
-import { cn } from "@/lib/utils";
+import { cn, setPreferredTrafficUnitFromValues } from "@/lib/utils";
 import type { BackendStatus, TabId, TimePreset } from "@/lib/types/dashboard";
 import type {
   StatsSummary,
   CountryStats,
   DeviceStats,
+  ProcessStats,
   ProxyStats,
 } from "@neko-master/shared";
 import type { PageSize } from "@/lib/stats-utils";
+
+type TrafficTotalLike = {
+  totalUpload?: number;
+  totalDownload?: number;
+};
+
+function trafficTotal(item: TrafficTotalLike | null | undefined): number {
+  return Number(item?.totalUpload || 0) + Number(item?.totalDownload || 0);
+}
+
+function collectTrafficUnitValues(
+  data: StatsSummary | null,
+  countryData: CountryStats[],
+): number[] {
+  return [
+    ...(data?.topDomains || []).map(trafficTotal),
+    ...(data?.topIPs || []).map(trafficTotal),
+    ...(data?.proxyStats || []).map(trafficTotal),
+    ...(data?.ruleStats || []).map(trafficTotal),
+    ...(data?.deviceStats || []).map(trafficTotal),
+    ...(data?.processStats || []).map(trafficTotal),
+    ...countryData.map(trafficTotal),
+  ];
+}
 
 interface ContentProps {
   activeTab: TabId;
@@ -43,14 +69,13 @@ interface ContentProps {
   activeBackendId?: number;
   backendStatus: BackendStatus;
   onNavigate?: (tab: string) => void;
+  onOpenBackendDialog?: () => void;
   isLoading?: boolean;
-  isTransitioning?: boolean;
 }
 
 // Overview Content Component
 const OverviewContent = memo(function OverviewContent({
   data,
-  countryData,
   error,
   timeRange,
   timePreset,
@@ -61,7 +86,6 @@ const OverviewContent = memo(function OverviewContent({
   isLoading,
 }: {
   data: StatsSummary | null;
-  countryData: CountryStats[];
   error: string | null;
   timeRange: TimeRange;
   timePreset: TimePreset;
@@ -82,7 +106,6 @@ const OverviewContent = memo(function OverviewContent({
       <OverviewTab
         domains={data?.topDomains || []}
         proxies={data?.proxyStats || []}
-        countries={countryData}
         timeRange={timeRange}
         timePreset={timePreset}
         autoRefresh={autoRefresh}
@@ -95,29 +118,29 @@ const OverviewContent = memo(function OverviewContent({
   );
 });
 
-// Domains Content Component
-const DomainsContent = memo(function DomainsContent({
+// Targets Content Component
+const TargetsContent = memo(function TargetsContent({
   activeBackendId,
   timeRange,
   autoRefresh,
+  countryData,
 }: {
   activeBackendId?: number;
   timeRange: TimeRange;
   autoRefresh: boolean;
+  countryData: CountryStats[];
 }) {
   const t = useTranslations("domains");
+  const countriesT = useTranslations("countries");
   const [sharedPageSize, setSharedPageSize] = useState<PageSize>(10);
 
   return (
     <div className="space-y-6">
-      <TopDomainsChart
-        activeBackendId={activeBackendId}
-        timeRange={timeRange}
-      />
       <Tabs defaultValue="domains" className="w-full">
         <TabsList className="glass">
           <TabsTrigger value="domains">{t("domainList")}</TabsTrigger>
           <TabsTrigger value="ips">{t("ipList")}</TabsTrigger>
+          <TabsTrigger value="geo">{countriesT("title")}</TabsTrigger>
         </TabsList>
         <TabsContent value="domains" className="overflow-hidden">
           <DomainsTable
@@ -136,6 +159,9 @@ const DomainsContent = memo(function DomainsContent({
             pageSize={sharedPageSize}
             onPageSizeChange={setSharedPageSize}
           />
+        </TabsContent>
+        <TabsContent value="geo" className="overflow-hidden">
+          <CountriesContent countryData={countryData} />
         </TabsContent>
       </Tabs>
     </div>
@@ -253,6 +279,52 @@ const RulesContent = memo(function RulesContent({
   );
 });
 
+// Links Content Component
+const LinksContent = memo(function LinksContent({
+  data,
+  activeBackendId,
+  timeRange,
+  backendStatus,
+  autoRefresh,
+}: {
+  data: StatsSummary | null;
+  activeBackendId?: number;
+  timeRange: TimeRange;
+  backendStatus: BackendStatus;
+  autoRefresh: boolean;
+}) {
+  const rulesT = useTranslations("rules");
+  const proxiesT = useTranslations("proxies");
+
+  return (
+    <div className="space-y-6">
+      <Tabs defaultValue="rules" className="w-full">
+        <TabsList className="glass">
+          <TabsTrigger value="rules">{rulesT("title")}</TabsTrigger>
+          <TabsTrigger value="proxies">{proxiesT("title")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="rules" className="mt-4">
+          <RulesContent
+            activeBackendId={activeBackendId}
+            timeRange={timeRange}
+            backendStatus={backendStatus}
+            autoRefresh={autoRefresh}
+          />
+        </TabsContent>
+        <TabsContent value="proxies" className="mt-4">
+          <ProxiesContent
+            data={data?.proxyStats}
+            activeBackendId={activeBackendId}
+            timeRange={timeRange}
+            backendStatus={backendStatus}
+            autoRefresh={autoRefresh}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+});
+
 // Devices Content Component
 const DevicesContent = memo(function DevicesContent({
   data,
@@ -302,17 +374,106 @@ const DevicesContent = memo(function DevicesContent({
   );
 });
 
-// Network Content Component
-const NetworkContent = memo(function NetworkContent() {
-  const t = useTranslations("network");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _typeCheck: TabId = "overview"; // Ensure TabId type is imported
+const ProcessesContent = memo(function ProcessesContent({
+  data,
+  activeBackendId,
+  timeRange,
+  backendStatus,
+}: {
+  data?: ProcessStats[];
+  activeBackendId?: number;
+  timeRange: TimeRange;
+  backendStatus: BackendStatus;
+}) {
+  return (
+    <InteractiveProcessStats
+      data={data}
+      activeBackendId={activeBackendId}
+      timeRange={timeRange}
+      backendStatus={backendStatus}
+    />
+  );
+});
+
+const SourcesContent = memo(function SourcesContent({
+  data,
+  activeBackendId,
+  timeRange,
+  backendStatus,
+  autoRefresh,
+}: {
+  data: StatsSummary | null;
+  activeBackendId?: number;
+  timeRange: TimeRange;
+  backendStatus: BackendStatus;
+  autoRefresh: boolean;
+}) {
+  const devicesT = useTranslations("devices");
+  const processesT = useTranslations("processes");
+
   return (
     <div className="space-y-6">
-      <div className="p-12 text-center text-muted-foreground border rounded-xl">
-        <p>{t("comingSoon")}</p>
-      </div>
+      <Tabs defaultValue="devices" className="w-full">
+        <TabsList className="glass">
+          <TabsTrigger value="devices">{devicesT("title")}</TabsTrigger>
+          <TabsTrigger value="processes">{processesT("title")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="devices" className="mt-4">
+          <DevicesContent
+            data={data?.deviceStats}
+            activeBackendId={activeBackendId}
+            timeRange={timeRange}
+            backendStatus={backendStatus}
+            autoRefresh={autoRefresh}
+          />
+        </TabsContent>
+        <TabsContent value="processes" className="mt-4">
+          <ProcessesContent
+            data={data?.processStats}
+            activeBackendId={activeBackendId}
+            timeRange={timeRange}
+            backendStatus={backendStatus}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+});
+
+const SystemContent = memo(function SystemContent({
+  timeRange,
+  onOpenBackendDialog,
+}: {
+  timeRange: TimeRange;
+  onOpenBackendDialog?: () => void;
+}) {
+  const healthT = useTranslations("health");
+  const backendT = useTranslations("backend");
+  const systemT = useTranslations("system");
+
+  return (
+    <Tabs defaultValue="health" className="w-full">
+      <TabsList className="glass">
+        <TabsTrigger value="health">{healthT("title")}</TabsTrigger>
+        <TabsTrigger value="backend">{backendT("title")}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="health" className="mt-4">
+        <HealthContent timeRange={timeRange} />
+      </TabsContent>
+      <TabsContent value="backend" className="mt-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              <Settings className="h-4 w-4" />
+              {backendT("title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={onOpenBackendDialog}>{systemT("openBackendSettings")}</Button>
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   );
 });
 
@@ -327,15 +488,16 @@ export function Content({
   activeBackendId,
   backendStatus,
   onNavigate,
-  isTransitioning,
+  onOpenBackendDialog,
 }: ContentProps) {
+  setPreferredTrafficUnitFromValues(collectTrafficUnitValues(data, countryData));
+
   const renderContent = () => {
     switch (activeTab) {
       case "overview":
         return (
           <OverviewContent
             data={data}
-            countryData={countryData}
             error={error}
             timeRange={timeRange}
             timePreset={timePreset}
@@ -345,54 +507,41 @@ export function Content({
             backendStatus={backendStatus}
           />
         );
-      case "domains":
+      case "links":
         return (
-          <DomainsContent
-            activeBackendId={activeBackendId}
-            timeRange={timeRange}
-            autoRefresh={autoRefresh}
-          />
-        );
-      case "countries":
-        return <CountriesContent countryData={countryData} />;
-      case "proxies":
-        return (
-          <ProxiesContent
-            data={data?.proxyStats}
+          <LinksContent
+            data={data}
             activeBackendId={activeBackendId}
             timeRange={timeRange}
             backendStatus={backendStatus}
             autoRefresh={autoRefresh}
           />
         );
-      case "rules":
+      case "targets":
         return (
-          <RulesContent
+          <TargetsContent
+            activeBackendId={activeBackendId}
+            timeRange={timeRange}
+            autoRefresh={autoRefresh}
+            countryData={countryData}
+          />
+        );
+      case "sources":
+        return (
+          <SourcesContent
+            data={data}
             activeBackendId={activeBackendId}
             timeRange={timeRange}
             backendStatus={backendStatus}
             autoRefresh={autoRefresh}
           />
         );
-      case "devices":
-        return (
-          <DevicesContent
-            data={data?.deviceStats}
-            activeBackendId={activeBackendId}
-            timeRange={timeRange}
-            backendStatus={backendStatus}
-            autoRefresh={autoRefresh}
-          />
-        );
-      case "network":
-        return <NetworkContent />;
-      case "health":
-        return <HealthContent timeRange={timeRange} />;
+      case "system":
+        return <SystemContent timeRange={timeRange} onOpenBackendDialog={onOpenBackendDialog} />;
       default:
         return (
           <OverviewContent
             data={data}
-            countryData={countryData}
             error={error}
             timeRange={timeRange}
             timePreset={timePreset}

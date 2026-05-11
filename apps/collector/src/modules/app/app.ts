@@ -12,6 +12,7 @@ import cookie from '@fastify/cookie';
 import type { StatsDatabase } from '../db/db.js';
 import type { RealtimeStore } from '../realtime/realtime.store.js';
 import { buildGatewayHeaders, getGatewayBaseUrl, isAgentBackendUrl, parseSurgeRule } from '@neko-master/shared';
+import type { ConnectionsData, LiveConnection, SurgeRequestsData } from '@neko-master/shared';
 import type { TrafficUpdate } from '../db/db.js';
 import { SurgePolicySyncService } from '../surge/surge-policy-sync.js';
 import type { GeoIPService } from '../geo/geo.service.js';
@@ -59,6 +60,8 @@ type AgentTrafficUpdatePayload = {
   download?: number;
   connections?: number;
   sourceIP?: string;
+  process?: string;
+  processPath?: string;
   timestampMs?: number;
 };
 
@@ -297,6 +300,80 @@ export async function createApp(options: AppOptions) {
     return buildGatewayHeaders(backend);
   };
 
+  const basenameFromPath = (value: unknown): string => {
+    const text = String(value || '').trim();
+    return text.split(/[\\/]/).filter(Boolean).pop() || text;
+  };
+
+  const normalizeLiveConnectionLimit = (value: unknown): number => {
+    const parsed = Number.parseInt(String(value || ''), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 100;
+    return Math.min(parsed, 500);
+  };
+
+  const mapClashLiveConnection = (connection: ConnectionsData['connections'][number]): LiveConnection => {
+    const metadata = connection.metadata || ({} as ConnectionsData['connections'][number]['metadata']);
+    const processPath = String(metadata.processPath || '').trim();
+    const process = String(metadata.process || '').trim() || basenameFromPath(processPath);
+    const domain = String(metadata.host || metadata.sniffHost || '').trim();
+    const ip = String(metadata.destinationIP || metadata.remoteDestination || '').trim();
+
+    return {
+      id: String(connection.id || `${metadata.sourceIP}:${metadata.sourcePort}:${ip}:${metadata.destinationPort}`),
+      domain: domain || undefined,
+      ip: ip || undefined,
+      sourceIP: String(metadata.sourceIP || '').trim() || undefined,
+      network: String(metadata.network || '').trim() || undefined,
+      type: String(metadata.type || '').trim() || undefined,
+      sourcePort: metadata.sourcePort || undefined,
+      destinationPort: metadata.destinationPort || undefined,
+      inboundName: String(metadata.inboundName || '').trim() || undefined,
+      dnsMode: String(metadata.dnsMode || '').trim() || undefined,
+      sniffHost: String(metadata.sniffHost || '').trim() || undefined,
+      remoteDestination: String(metadata.remoteDestination || '').trim() || undefined,
+      process: process || undefined,
+      processPath: processPath || undefined,
+      rule: String(connection.rule || '').trim() || undefined,
+      rulePayload: String(connection.rulePayload || '').trim() || undefined,
+      chains: Array.isArray(connection.chains) ? connection.chains : [],
+      upload: Math.max(0, Math.floor(connection.upload || 0)),
+      download: Math.max(0, Math.floor(connection.download || 0)),
+      start: connection.start,
+    };
+  };
+
+  const mapSurgeLiveConnection = (request: SurgeRequestsData['requests'][number]): LiveConnection => {
+    const processPath = String(request.processPath || '').trim();
+    const process = basenameFromPath(processPath);
+    const status =
+      request.failed || request.rejected
+        ? 'failed'
+        : request.completed || request.disconnected
+          ? 'closed'
+          : String(request.status || 'active');
+
+    return {
+      id: String(request.id || `${request.time}:${request.remoteHost}:${request.remotePort}`),
+      domain: String(request.remoteHost || '').trim() || undefined,
+      ip: String(request.remoteAddress || '').trim() || undefined,
+      sourceIP: String(request.sourceAddress || request.localAddress || '').trim() || undefined,
+      network: 'TCP',
+      sourcePort: request.sourcePort ?? request.localPort,
+      destinationPort: request.remotePort,
+      process: process || undefined,
+      processPath: processPath || undefined,
+      rule: String(request.rule || request.originalPolicyName || '').trim() || undefined,
+      chains: [request.policyName || request.originalPolicyName || 'DIRECT'].filter(Boolean),
+      upload: Math.max(0, Math.floor(request.outBytes || 0)),
+      download: Math.max(0, Math.floor(request.inBytes || 0)),
+      uploadSpeed: request.outCurrentSpeed,
+      downloadSpeed: request.inCurrentSpeed,
+      start: request.timestamp || (request.startDate ? new Date(request.startDate).toISOString() : undefined),
+      status,
+      method: request.method,
+    };
+  };
+
   const parseNonNegativeInt = (value: unknown): number | null => {
     const parsed = Number.parseInt(String(value), 10);
     if (!Number.isFinite(parsed) || parsed < 0) return null;
@@ -480,6 +557,8 @@ export async function createApp(options: AppOptions) {
       download,
       connections,
       sourceIP: String(raw.sourceIP || '').trim().slice(0, 64),
+      process: String(raw.process || '').trim().slice(0, 128),
+      processPath: String(raw.processPath || '').trim().slice(0, 512),
       timestampMs,
     };
   };
@@ -721,6 +800,8 @@ export async function createApp(options: AppOptions) {
         download: update.download,
         connections,
         sourceIP: update.sourceIP,
+        process: update.process,
+        processPath: update.processPath,
         timestampMs: update.timestampMs,
       });
 
@@ -735,6 +816,8 @@ export async function createApp(options: AppOptions) {
           rulePayload: update.rulePayload,
           upload: update.upload,
           download: update.download,
+          process: update.process,
+          processPath: update.processPath,
         },
         connections,
         update.timestampMs || Date.now(),
@@ -933,6 +1016,72 @@ export async function createApp(options: AppOptions) {
         }
         return res.json();
       }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to reach Gateway API';
+      return reply.status(502).send({ error: message });
+    }
+  });
+
+  app.get('/api/gateway/connections', async (request, reply) => {
+    const query = request.query as Record<string, unknown>;
+    const backendId = getBackendIdFromQuery(query);
+    const limit = normalizeLiveConnectionLimit(query.limit);
+
+    if (backendId === null) {
+      return reply.status(404).send({ error: 'No backend specified or active' });
+    }
+
+    const backend = db.getBackend(backendId);
+    if (!backend) {
+      return reply.status(404).send({ error: 'Backend not found' });
+    }
+
+    if (isAgentBackendUrl(backend.url)) {
+      return {
+        connections: [],
+        supported: false,
+        _source: 'agent-cache',
+        message: 'Agent mode only sends aggregated traffic reports; live per-connection data is not cached.',
+      };
+    }
+
+    const gatewayBaseUrl = getGatewayBaseUrl(backend.url);
+    const headers = getHeaders(backend);
+
+    try {
+      if (backend.type === 'surge') {
+        const res = await fetch(`${gatewayBaseUrl}/v1/requests/recent`, {
+          headers,
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) {
+          return reply.status(res.status).send({ error: `Surge API error: ${res.status}` });
+        }
+        const data = await res.json() as SurgeRequestsData | { requests?: unknown[] };
+        const requests = Array.isArray(data.requests) ? data.requests : [];
+        return {
+          connections: requests.slice(0, limit).map((item) => mapSurgeLiveConnection(item as SurgeRequestsData['requests'][number])),
+          supported: true,
+          _source: 'surge',
+        };
+      }
+
+      const res = await fetch(`${gatewayBaseUrl}/connections`, {
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) {
+        return reply.status(res.status).send({ error: `Gateway API error: ${res.status}` });
+      }
+      const data = await res.json() as ConnectionsData;
+      const connections = Array.isArray(data.connections) ? data.connections : [];
+      return {
+        connections: connections.slice(0, limit).map(mapClashLiveConnection),
+        supported: true,
+        _source: 'clash',
+        downloadTotal: data.downloadTotal || 0,
+        uploadTotal: data.uploadTotal || 0,
+      };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to reach Gateway API';
       return reply.status(502).send({ error: message });

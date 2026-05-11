@@ -2,6 +2,7 @@ import type {
   DomainStats,
   HourlyStats,
   IPStats,
+  ProcessStats,
   ProxyStats,
   RuleStats,
 } from '@neko-master/shared';
@@ -40,6 +41,17 @@ type RuleChainFlowAll = {
   links: Array<{ source: number; target: number; rules: string[] }>;
   rulePaths: Record<string, { nodeIndices: number[]; linkIndices: number[] }>;
   maxLayer: number;
+};
+
+type TrafficDetailFilters = {
+  chain?: string;
+  sourceChain?: string;
+  rule?: string;
+  sourceIP?: string;
+  domain?: string;
+  ip?: string;
+  process?: string;
+  processPath?: string;
 };
 
 export type ClickHouseSummary = {
@@ -949,19 +961,54 @@ LIMIT ${Math.max(1, limit)}
     }));
   }
 
+  async getProcessStats(
+    backendId: number,
+    limit: number,
+    start: string,
+    end: string,
+  ): Promise<ProcessStats[] | null> {
+    const rows = await this.query<any>(`
+SELECT
+  process,
+  process_path AS processPath,
+  toUInt64(SUM(upload)) AS totalUpload,
+  toUInt64(SUM(download)) AS totalDownload,
+  toUInt64(SUM(connections)) AS totalConnections,
+  toString(max(minute)) AS lastSeen,
+  arrayDistinct(groupArrayIf(domain, domain != '')) AS domains,
+  arrayDistinct(groupArrayIf(ip, ip != '')) AS ips,
+  arrayDistinct(groupArrayIf(rule, rule != '')) AS rules,
+  arrayDistinct(groupArrayIf(chain, chain != '')) AS chains
+FROM ${this.config.database}.traffic_detail_buffer
+WHERE backend_id = ${backendId}
+  AND minute >= toDateTime('${this.toDateTime(start)}')
+  AND minute <= toDateTime('${this.toDateTime(end)}')
+  AND (process != '' OR process_path != '')
+GROUP BY process, process_path
+ORDER BY (SUM(upload) + SUM(download)) DESC
+LIMIT ${Math.max(1, limit)}
+`);
+    if (!rows) return null;
+    return rows.map((row: any) => ({
+      process: String(row.process || row.processPath || ''),
+      processPath: row.processPath ? String(row.processPath) : undefined,
+      totalUpload: Number(row.totalUpload || 0),
+      totalDownload: Number(row.totalDownload || 0),
+      totalConnections: Number(row.totalConnections || 0),
+      lastSeen: String(row.lastSeen || ''),
+      domains: Array.isArray(row.domains) ? row.domains.map(String) : [],
+      ips: Array.isArray(row.ips) ? row.ips.map(String) : [],
+      rules: Array.isArray(row.rules) ? row.rules.map(String) : [],
+      chains: Array.isArray(row.chains) ? row.chains.map(String) : [],
+    }));
+  }
+
   async getGroupedDomains(
     backendId: number,
     start: string,
     end: string,
     limit: number,
-    filters: {
-      chain?: string;
-      sourceChain?: string;
-      rule?: string;
-      sourceIP?: string;
-      domain?: string;
-      ip?: string;
-    },
+    filters: TrafficDetailFilters,
   ): Promise<DomainStats[] | null> {
     const clauses = this.buildFilters(filters);
     const rows = await this.query<any>(`
@@ -1001,14 +1048,7 @@ LIMIT ${Math.max(1, limit)}
     start: string,
     end: string,
     limit: number,
-    filters: {
-      chain?: string;
-      sourceChain?: string;
-      rule?: string;
-      sourceIP?: string;
-      domain?: string;
-      ip?: string;
-    },
+    filters: TrafficDetailFilters,
   ): Promise<IPStats[] | null> {
     const clauses = this.buildFilters(filters);
     const rows = await this.query<any>(`
@@ -1041,18 +1081,47 @@ LIMIT ${Math.max(1, limit)}
     }));
   }
 
+  async getGroupedRules(
+    backendId: number,
+    start: string,
+    end: string,
+    limit: number,
+    filters: TrafficDetailFilters,
+  ): Promise<RuleStats[] | null> {
+    const clauses = this.buildFilters(filters);
+    const rows = await this.query<any>(`
+SELECT
+  rule,
+  arrayElement(splitByString(' > ', any(chain)), 1) AS finalProxy,
+  toUInt64(SUM(upload)) AS totalUpload,
+  toUInt64(SUM(download)) AS totalDownload,
+  toUInt64(SUM(connections)) AS totalConnections,
+  toString(max(minute)) AS lastSeen
+FROM ${this.config.database}.traffic_detail_buffer
+WHERE backend_id = ${backendId}
+  AND minute >= toDateTime('${this.toDateTime(start)}')
+  AND minute <= toDateTime('${this.toDateTime(end)}')
+  AND rule != '' ${clauses}
+GROUP BY rule
+ORDER BY (SUM(upload) + SUM(download)) DESC
+LIMIT ${Math.max(1, limit)}
+`);
+    if (!rows) return null;
+    return rows.map((row: any) => ({
+      rule: String(row.rule || ''),
+      finalProxy: String(row.finalProxy || ''),
+      totalUpload: Number(row.totalUpload || 0),
+      totalDownload: Number(row.totalDownload || 0),
+      totalConnections: Number(row.totalConnections || 0),
+      lastSeen: String(row.lastSeen || ''),
+    }));
+  }
+
   async getGroupedProxyStats(
     backendId: number,
     start: string,
     end: string,
-    filters: {
-      chain?: string;
-      sourceChain?: string;
-      rule?: string;
-      sourceIP?: string;
-      domain?: string;
-      ip?: string;
-    },
+    filters: TrafficDetailFilters,
   ): Promise<any[] | null> {
     const clauses = this.buildFilters(filters);
     const rows = await this.query<any>(`
@@ -1060,7 +1129,8 @@ SELECT
   chain,
   toUInt64(SUM(upload)) AS totalUpload,
   toUInt64(SUM(download)) AS totalDownload,
-  toUInt64(SUM(connections)) AS totalConnections
+  toUInt64(SUM(connections)) AS totalConnections,
+  toString(max(minute)) AS lastSeen
 FROM ${this.config.database}.traffic_detail_buffer
 WHERE backend_id = ${backendId}
   AND minute >= toDateTime('${this.toDateTime(start)}')
@@ -1075,6 +1145,7 @@ ORDER BY (SUM(upload) + SUM(download)) DESC
       totalUpload: Number(row.totalUpload || 0),
       totalDownload: Number(row.totalDownload || 0),
       totalConnections: Number(row.totalConnections || 0),
+      lastSeen: String(row.lastSeen || ''),
     }));
   }
 
@@ -1252,6 +1323,8 @@ ORDER BY rule, chain
     if (filters.sourceIP) clauses.push(`source_ip = '${this.esc(filters.sourceIP)}'`);
     if (filters.domain) clauses.push(`domain = '${this.esc(filters.domain)}'`);
     if (filters.ip) clauses.push(`ip = '${this.esc(filters.ip)}'`);
+    if (filters.process) clauses.push(`process = '${this.esc(filters.process)}'`);
+    if (filters.processPath) clauses.push(`process_path = '${this.esc(filters.processPath)}'`);
     if (clauses.length === 0) return '';
     return ` AND ${clauses.join(' AND ')}`;
   }

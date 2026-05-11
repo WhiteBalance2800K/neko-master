@@ -56,6 +56,14 @@ export type DomainDelta = {
   ips: Set<string>;
   rules: Set<string>;
   chains: Set<string>;
+  processes: Map<string, {
+    process: string;
+    processPath?: string;
+    totalUpload: number;
+    totalDownload: number;
+    totalConnections: number;
+    lastSeen: string;
+  }>;
 };
 
 export type IPDelta = {
@@ -73,6 +81,8 @@ export type TrafficMeta = {
   domain: string;
   ip: string;
   sourceIP?: string;
+  process?: string;
+  processPath?: string;
   chains: string[];
   rule: string;
   rulePayload: string;

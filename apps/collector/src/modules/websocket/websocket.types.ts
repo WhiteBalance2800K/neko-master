@@ -9,6 +9,7 @@ export type SummaryFieldKey =
   | 'proxyStats'
   | 'countryStats'
   | 'deviceStats'
+  | 'processStats'
   | 'ruleStats'
   | 'hourlyStats';
 

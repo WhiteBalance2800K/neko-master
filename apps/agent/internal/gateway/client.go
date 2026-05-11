@@ -56,6 +56,8 @@ type clashConnectionsResponse struct {
 			SniffHost     string `json:"sniffHost"`
 			DestinationIP string `json:"destinationIP"`
 			SourceIP      string `json:"sourceIP"`
+			Process       string `json:"process"`
+			ProcessPath   string `json:"processPath"`
 		} `json:"metadata"`
 	} `json:"connections"`
 }
@@ -212,6 +214,8 @@ func (c *Client) collectClash(ctx context.Context) ([]domain.FlowSnapshot, error
 			Chains:      normalizeChains(item.Chains),
 			Rule:        defaultString(strings.TrimSpace(item.Rule), "Match"),
 			RulePayload: strings.TrimSpace(item.RulePayload),
+			Process:     strings.TrimSpace(item.Metadata.Process),
+			ProcessPath: strings.TrimSpace(item.Metadata.ProcessPath),
 			Upload:      toInt64(item.Upload),
 			Download:    toInt64(item.Download),
 			TimestampMs: nowMs,
@@ -293,6 +297,7 @@ func (c *Client) collectSurge(ctx context.Context) ([]domain.FlowSnapshot, error
 			Chains:      chains,
 			Rule:        defaultString(rule, "Match"),
 			RulePayload: rulePayload,
+			ProcessPath: strings.TrimSpace(reqItem.ProcessPath),
 			Upload:      toInt64(float64(reqItem.OutBytes)),
 			Download:    toInt64(float64(reqItem.InBytes)),
 			TimestampMs: timestampMs,

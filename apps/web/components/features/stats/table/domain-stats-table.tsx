@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   Server,
+  Cpu,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,6 +58,46 @@ import type { DomainStats } from "@neko-master/shared";
 const DETAIL_QUERY_STALE_MS = 30_000;
 
 type DomainTableMode = "local" | "remote";
+
+function DomainProcessChips({
+  domain,
+  label,
+}: {
+  domain: DomainStats;
+  label: string;
+}) {
+  const processes = (domain.processes || []).filter(
+    (item) => item.process || item.processPath,
+  );
+
+  if (processes.length === 0) return null;
+
+  const visible = processes.slice(0, 2);
+  const hiddenCount = Math.max(0, processes.length - visible.length);
+
+  return (
+    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
+      <Cpu className="h-3 w-3 shrink-0" aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+      <div className="flex items-center gap-1 min-w-0">
+        {visible.map((item) => (
+          <span
+            key={`${item.process}:${item.processPath || ""}`}
+            className="max-w-[120px] truncate rounded bg-secondary/70 px-1.5 py-0.5 font-medium text-foreground/80"
+            title={item.processPath || item.process}
+          >
+            {item.process}
+          </span>
+        ))}
+        {hiddenCount > 0 && (
+          <span className="rounded bg-secondary/50 px-1.5 py-0.5 font-medium">
+            +{hiddenCount}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface DomainStatsTableProps {
   domains: DomainStats[];
@@ -485,13 +526,16 @@ export function DomainStatsTable({
                     >
                       <div className={cn(domainColumnClass, "flex items-center gap-3 min-w-0")}>
                         <Favicon domain={domain.domain} size="sm" className="shrink-0" />
-                        <DomainPreview
-                          className="flex-1"
-                          domain={domain.domain}
-                          unknownLabel={t("unknown")}
-                          copyLabel={t("copyDomain")}
-                          copiedLabel={t("copied")}
-                        />
+                        <div className="min-w-0 flex-1">
+                          <DomainPreview
+                            className="flex-1"
+                            domain={domain.domain}
+                            unknownLabel={t("unknown")}
+                            copyLabel={t("copyDomain")}
+                            copiedLabel={t("copied")}
+                          />
+                          <DomainProcessChips domain={domain} label={t("processes")} />
+                        </div>
                       </div>
 
                       {showProxyColumn && (
@@ -567,14 +611,16 @@ export function DomainStatsTable({
                     >
                       <div className="flex items-center gap-2.5 mb-2">
                         <Favicon domain={domain.domain} size="sm" className="shrink-0" />
-                        <DomainPreview
-                          className="flex-1"
-                          domain={domain.domain}
-                          unknownLabel={t("unknown")}
-                          copyLabel={t("copyDomain")}
-                          copiedLabel={t("copied")}
-                          interactive={false}
-                        />
+                        <div className="min-w-0 flex-1">
+                          <DomainPreview
+                            className="flex-1"
+                            domain={domain.domain}
+                            unknownLabel={t("unknown")}
+                            copyLabel={t("copyDomain")}
+                            copiedLabel={t("copied")}
+                            interactive={false}
+                          />
+                        </div>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -597,6 +643,10 @@ export function DomainStatsTable({
                             <ChevronDown className="h-3 w-3" />
                           )}
                         </Button>
+                      </div>
+
+                      <div className="pl-[30px]">
+                        <DomainProcessChips domain={domain} label={t("processes")} />
                       </div>
 
                       {showProxyColumn && domain.chains && domain.chains.length > 0 && (

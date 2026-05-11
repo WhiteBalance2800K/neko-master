@@ -5,13 +5,10 @@
   },
   "nav": {
     "overview": "概览",
-    "domains": "域名",
-    "countries": "地区",
-    "devices": "设备",
-    "proxies": "代理",
-    "rules": "规则",
-    "network": "网络",
-    "health": "健康",
+    "links": "链路",
+    "targets": "目标",
+    "sources": "来源",
+    "system": "系统",
     "settings": "设置",
     "showcaseMode": "演示模式"
   },
@@ -166,6 +163,9 @@
     "unknown": "未知",
     "ips": "IP数",
     "ipCount": "IP数",
+    "process": "进程",
+    "processes": "进程",
+    "unknownProcess": "未知进程",
     "proxy": "代理节点",
     "proxyTraffic": "代理节点流量明细",
 
@@ -533,6 +533,34 @@
       "emergencyResetDescription": "当前处于紧急访问模式。重置密码后，旧的令牌将失效。",
       "emergencyResetWarning": "为了您的面板安全，请在重置完成后，务必删除后端环境变量 FORCE_ACCESS_CONTROL_OFF 并重启服务。"
     }
+  },
+  "overviewPath": {
+    "source": "来源",
+    "process": "进程",
+    "target": "目标",
+    "rule": "规则",
+    "proxy": "代理",
+    "region": "地区"
+  },
+  "processes": {
+    "title": "进程",
+    "unknown": "未知进程",
+    "noData": "暂无进程数据",
+    "noDataHint": "当前网关暂未上报进程信息。"
+  },
+  "connections": {
+    "title": "实时连接",
+    "process": "进程",
+    "target": "目标",
+    "rule": "规则",
+    "proxy": "代理链",
+    "loading": "加载实时连接...",
+    "empty": "暂无实时连接",
+    "unsupported": "当前后端不提供实时逐连接数据",
+    "unavailable": "实时连接不可用"
+  },
+  "system": {
+    "openBackendSettings": "打开后端设置"
   },
   "health": {
     "title": "节点健康",

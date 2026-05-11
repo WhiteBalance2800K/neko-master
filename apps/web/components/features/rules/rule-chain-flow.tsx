@@ -80,6 +80,7 @@ const RULE_CHAIN_FLOW_WS_MIN_PUSH_MS = 5000;
 // ---------- Custom Edge ----------
 
 const MergedAnimatedFlowEdge = memo(function MergedAnimatedFlowEdge({
+  id,
   sourceX,
   sourceY,
   targetX,
@@ -126,9 +127,19 @@ const MergedAnimatedFlowEdge = memo(function MergedAnimatedFlowEdge({
         : "rgba(129, 140, 248, 0.3)"; // indigo
 
   // Keep motion only for active traffic links.
-  // Panorama and focused mode share the same three-dot particle style.
+  // Panorama and focused mode share a denser particle stream so traffic reads as flow.
   const showFlowMotion = !dimmed && !zeroTraffic;
-  const motionDuration = "2s";
+  const motionDuration = showAll ? "1.9s" : "1.6s";
+  const particleColors = zeroTraffic
+    ? ["#9CA3AF"]
+    : isToDirect
+      ? ["#fed7aa", "#fb923c", "#f97316", "#fef3c7"]
+      : isToProxy
+        ? ["#a7f3d0", "#34d399", "#22d3ee", "#f0fdfa"]
+        : ["#c4b5fd", "#a5b4fc", "#60a5fa", "#f5d0fe"];
+  const particleCount = showAll ? 9 : 11;
+  const glowId = `flow-glow-${String(id).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const gradientId = `flow-gradient-${String(id).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
   return (
     <g
@@ -136,6 +147,30 @@ const MergedAnimatedFlowEdge = memo(function MergedAnimatedFlowEdge({
         opacity: dimmed ? 0.12 : zeroTraffic ? 0.5 : 1,
         transition: "opacity 0.4s ease",
       }}>
+      {showFlowMotion && (
+        <defs>
+          <linearGradient
+            id={gradientId}
+            gradientUnits="userSpaceOnUse"
+            x1={sourceX}
+            y1={sourceY}
+            x2={targetX}
+            y2={targetY}
+          >
+            <stop offset="0%" stopColor={particleColors[0]} stopOpacity="0.15" />
+            <stop offset="45%" stopColor={particleColors[1]} stopOpacity="0.85" />
+            <stop offset="75%" stopColor={particleColors[2]} stopOpacity="0.75" />
+            <stop offset="100%" stopColor={particleColors[3] || particleColors[1]} stopOpacity="0.2" />
+          </linearGradient>
+          <filter id={glowId} x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="2.8" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+      )}
       <path
         d={edgePath}
         fill="none"
@@ -146,36 +181,35 @@ const MergedAnimatedFlowEdge = memo(function MergedAnimatedFlowEdge({
       <path
         d={edgePath}
         fill="none"
-        stroke={lineColor}
-        strokeWidth={1.5}
+        stroke={showFlowMotion ? `url(#${gradientId})` : lineColor}
+        strokeWidth={showFlowMotion ? 2.2 : 1.5}
         strokeLinecap="round"
       />
       {showFlowMotion && (
         <>
-          <circle r={3.5} fill={dotColor} opacity={0.9}>
-            <animateMotion
-              dur={motionDuration}
-              repeatCount="indefinite"
-              path={edgePath}
-              begin="0s"
-            />
-          </circle>
-          <circle r="2.5" fill={dotColor} opacity="0.5">
-            <animateMotion
-              dur={motionDuration}
-              repeatCount="indefinite"
-              path={edgePath}
-              begin="0.66s"
-            />
-          </circle>
-          <circle r="1.5" fill={dotColor} opacity="0.25">
-            <animateMotion
-              dur={motionDuration}
-              repeatCount="indefinite"
-              path={edgePath}
-              begin="1.33s"
-            />
-          </circle>
+          {Array.from({ length: particleCount }).map((_, index) => {
+            const color = particleColors[index % particleColors.length] || dotColor;
+            const radius = index % 3 === 0 ? 3.8 : index % 3 === 1 ? 2.8 : 1.9;
+            const opacity = index % 3 === 0 ? 0.92 : index % 3 === 1 ? 0.68 : 0.42;
+            const begin = `${((index / particleCount) * Number.parseFloat(motionDuration)).toFixed(2)}s`;
+
+            return (
+              <circle
+                key={`${id}-particle-${index}`}
+                r={radius}
+                fill={color}
+                opacity={opacity}
+                filter={`url(#${glowId})`}
+              >
+                <animateMotion
+                  dur={motionDuration}
+                  repeatCount="indefinite"
+                  path={edgePath}
+                  begin={begin}
+                />
+              </circle>
+            );
+          })}
         </>
       )}
     </g>
@@ -926,7 +960,7 @@ function UnifiedRuleChainFlowInner({
   const [data, setData] = useState<AllChainFlowData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
   const [activePolicyOnly, setActivePolicyOnly] = useState(false);
   const prevRuleRef = useRef(selectedRule);
   const hasLoadedRef = useRef(false);
@@ -1138,11 +1172,10 @@ function UnifiedRuleChainFlowInner({
     }
   }, [gatewayProviders, gatewayRules, gatewayProxies, activeBackendId]);
 
-  // When user selects a different rule, auto-disable showAll
+  // Keep the graph in panorama mode by default; selected rules still drive details below.
   useEffect(() => {
     if (selectedRule && selectedRule !== prevRuleRef.current) {
       prevRuleRef.current = selectedRule;
-      setShowAll(false);
     }
   }, [selectedRule]);
 

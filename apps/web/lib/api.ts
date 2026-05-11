@@ -8,6 +8,8 @@ import type {
   TrafficTrendPoint,
   ProxyTrafficStats,
   DeviceStats,
+  ProcessStats,
+  LiveConnection,
 } from "@neko-master/shared";
 import { getAuthHeaders } from "./auth-queries";
 
@@ -184,6 +186,15 @@ export interface GatewayRulesResponse {
   // Surge specific fields
   _source?: 'surge' | 'clash' | 'agent-cache';
   _availablePolicies?: string[];
+}
+
+export interface GatewayConnectionsResponse {
+  connections: LiveConnection[];
+  supported: boolean;
+  _source?: "clash" | "surge" | "agent-cache";
+  message?: string;
+  downloadTotal?: number;
+  uploadTotal?: number;
 }
 
 export type GeoLookupProvider = "online" | "local";
@@ -421,6 +432,60 @@ export const api = {
       })
     ),
 
+  // Process stats APIs
+  getProcesses: (backendId?: number, limit = 50, range?: TimeRange) =>
+    fetchJson<ProcessStats[]>(
+      buildUrl(`${API_BASE}/stats/processes`, { backendId, limit, start: range?.start, end: range?.end })
+    ),
+
+  getProcessDomains: (process: string, processPath?: string, backendId?: number, range?: TimeRange, limit = DETAIL_FETCH_LIMIT) =>
+    fetchJson<DomainStats[]>(
+      buildUrl(`${API_BASE}/stats/processes/domains`, {
+        process,
+        processPath,
+        limit,
+        backendId,
+        start: range?.start,
+        end: range?.end,
+      })
+    ),
+
+  getProcessIPs: (process: string, processPath?: string, backendId?: number, range?: TimeRange, limit = DETAIL_FETCH_LIMIT) =>
+    fetchJson<IPStats[]>(
+      buildUrl(`${API_BASE}/stats/processes/ips`, {
+        process,
+        processPath,
+        limit,
+        backendId,
+        start: range?.start,
+        end: range?.end,
+      })
+    ),
+
+  getProcessRules: (process: string, processPath?: string, backendId?: number, range?: TimeRange, limit = DETAIL_FETCH_LIMIT) =>
+    fetchJson<RuleStats[]>(
+      buildUrl(`${API_BASE}/stats/processes/rules`, {
+        process,
+        processPath,
+        limit,
+        backendId,
+        start: range?.start,
+        end: range?.end,
+      })
+    ),
+
+  getProcessProxies: (process: string, processPath?: string, backendId?: number, range?: TimeRange, limit = DETAIL_FETCH_LIMIT) =>
+    fetchJson<ProxyStats[]>(
+      buildUrl(`${API_BASE}/stats/processes/proxies`, {
+        process,
+        processPath,
+        limit,
+        backendId,
+        start: range?.start,
+        end: range?.end,
+      })
+    ),
+
   getRuleDomains: (rule: string, backendId?: number, range?: TimeRange, limit = DETAIL_FETCH_LIMIT) =>
     fetchJson<DomainStats[]>(
       buildUrl(`${API_BASE}/stats/rules/domains`, {
@@ -533,6 +598,11 @@ export const api = {
 
   getGatewayProxies: (backendId?: number) =>
     fetchJson<GatewayProxiesResponse>(buildUrl(`${API_BASE}/gateway/proxies`, { backendId })),
+
+  getGatewayConnections: (backendId?: number, limit = 100) =>
+    fetchJson<GatewayConnectionsResponse>(
+      buildUrl(`${API_BASE}/gateway/connections`, { backendId, limit })
+    ),
     
   // Backend management
   getBackends: () =>

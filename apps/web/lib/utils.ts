@@ -5,19 +5,59 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+type ByteUnit = "B" | "KB" | "MB" | "GB" | "TB" | "PB";
+
+const BYTE_UNITS: ByteUnit[] = ["B", "KB", "MB", "GB", "TB", "PB"];
+const BYTE_UNIT_INDEX = new Map<ByteUnit, number>(
+  BYTE_UNITS.map((unit, index) => [unit, index]),
+);
+
+let preferredTrafficUnit: ByteUnit | null = null;
+
+function getByteUnit(bytes: number): ByteUnit {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "B";
+  const exponent = Math.log(bytes) / Math.log(1024);
+  const rawIndex = Number.isFinite(exponent) ? Math.floor(exponent) : 0;
+  const index = rawIndex < 0 ? 0 : Math.min(rawIndex, BYTE_UNITS.length - 1);
+  return BYTE_UNITS[index] ?? "B";
+}
+
+function normalizePreferredTrafficUnit(unit: ByteUnit): ByteUnit | null {
+  const index = BYTE_UNIT_INDEX.get(unit) ?? 0;
+  return index >= (BYTE_UNIT_INDEX.get("MB") ?? 2) ? unit : null;
+}
+
+export function setPreferredTrafficUnitFromValues(values: number[]): ByteUnit | null {
+  const totals = values
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((a, b) => b - a);
+
+  if (totals.length === 0) {
+    preferredTrafficUnit = null;
+    return preferredTrafficUnit;
+  }
+
+  const firstUnit = getByteUnit(totals[0]);
+  const secondUnit = totals.length > 1 ? getByteUnit(totals[1]) : firstUnit;
+  const comparisonUnit = totals.length > 1 && firstUnit === secondUnit ? secondUnit : firstUnit;
+  preferredTrafficUnit = normalizePreferredTrafficUnit(comparisonUnit);
+  return preferredTrafficUnit;
+}
+
 export function formatBytes(bytes: number, decimals = 2): string {
   const normalizedBytes = Number(bytes);
-  if (!Number.isFinite(normalizedBytes) || normalizedBytes === 0) return "0 B";
+  const forcedUnit = preferredTrafficUnit;
+  if (!Number.isFinite(normalizedBytes) || normalizedBytes === 0) {
+    return forcedUnit ? `0 ${forcedUnit}` : "0 B";
+  }
   if (normalizedBytes < 0) return `-${formatBytes(-normalizedBytes, decimals)}`;
 
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
-
-  const exponent = Math.log(normalizedBytes) / Math.log(k);
-  const rawIndex = Number.isFinite(exponent) ? Math.floor(exponent) : 0;
-  const i = rawIndex < 0 ? 0 : Math.min(rawIndex, sizes.length - 1);
-  const unit = sizes[i] ?? "B";
+  const autoUnit = getByteUnit(normalizedBytes);
+  const unit = forcedUnit ?? autoUnit;
+  const i = BYTE_UNIT_INDEX.get(unit) ?? 0;
   const scaled = normalizedBytes / Math.pow(k, i);
   const safeScaled = Number.isFinite(scaled) ? scaled : 0;
 

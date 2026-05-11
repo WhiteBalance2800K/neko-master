@@ -3,6 +3,7 @@ import type {
   DeviceStats,
   DomainStats,
   IPStats,
+  ProcessStats,
   ProxyStats,
   RuleStats,
   StatsSummary,
@@ -39,6 +40,19 @@ type DeviceDelta = {
   lastSeen: string;
 };
 
+type ProcessDelta = {
+  process: string;
+  processPath?: string;
+  totalUpload: number;
+  totalDownload: number;
+  totalConnections: number;
+  lastSeen: string;
+  domains: Set<string>;
+  ips: Set<string>;
+  rules: Set<string>;
+  chains: Set<string>;
+};
+
 type RuleDelta = {
   rule: string;
   finalProxy: string;
@@ -67,6 +81,14 @@ type DomainDelta = {
   ips: Set<string>;
   rules: Set<string>;
   chains: Set<string>;
+  processes: Map<string, {
+    process: string;
+    processPath?: string;
+    totalUpload: number;
+    totalDownload: number;
+    totalConnections: number;
+    lastSeen: string;
+  }>;
 };
 
 type IPDelta = {
@@ -88,6 +110,8 @@ export type TrafficMeta = {
   domain: string;
   ip: string;
   sourceIP?: string;
+  process?: string;
+  processPath?: string;
   chains: string[];
   rule: string;
   rulePayload: string;
@@ -207,6 +231,48 @@ function sortIPs(data: IPStats[], sortBy: string, sortOrder: 'asc' | 'desc'): IP
   });
 }
 
+function processKey(process: string, processPath?: string): string {
+  return `${process}\0${processPath || ''}`;
+}
+
+function pathBasename(value: string): string {
+  return value.split(/[\\/]/).filter(Boolean).pop() || value;
+}
+
+function normalizeTrafficProcess(meta: Pick<TrafficMeta, 'process' | 'processPath'>): { process: string; processPath?: string } | null {
+  const processName = (meta.process || '').trim();
+  const processPath = (meta.processPath || '').trim();
+  if (!processName && !processPath) return null;
+  return {
+    process: processName || pathBasename(processPath),
+    processPath: processPath || undefined,
+  };
+}
+
+function mergeDomainProcesses(target: DomainStats, delta: DomainDelta): void {
+  if (delta.processes.size === 0) return;
+
+  const merged = new Map(
+    (target.processes || []).map((item) => [processKey(item.process, item.processPath), { ...item }]),
+  );
+
+  for (const [key, item] of delta.processes) {
+    const existing = merged.get(key);
+    if (existing) {
+      existing.totalUpload += item.totalUpload;
+      existing.totalDownload += item.totalDownload;
+      existing.totalConnections += item.totalConnections;
+      if (item.lastSeen > existing.lastSeen) existing.lastSeen = item.lastSeen;
+    } else {
+      merged.set(key, { ...item });
+    }
+  }
+
+  target.processes = Array.from(merged.values())
+    .sort((a, b) => (b.totalDownload + b.totalUpload) - (a.totalDownload + a.totalUpload))
+    .slice(0, 5);
+}
+
 export type AgentGatewayConfig = {
   rules: Array<{ type: string; payload: string; proxy: string; raw?: string }>;
   proxies: Record<string, { name: string; type: string; now?: string }>;
@@ -231,6 +297,7 @@ export class RealtimeStore {
   public ipByBackend = new Map<number, Map<string, IPDelta>>();
   public proxyByBackend = new Map<number, Map<string, ProxyDelta>>();
   public deviceByBackend = new Map<number, Map<string, DeviceDelta>>();
+  public processByBackend = new Map<number, Map<string, ProcessDelta>>();
   public deviceDomainByBackend = new Map<number, Map<string, Map<string, DomainDelta>>>();
   public deviceIPByBackend = new Map<number, Map<string, Map<string, IPDelta>>>();
   public ruleByBackend = new Map<number, Map<string, RuleDelta>>();
@@ -372,6 +439,7 @@ export class RealtimeStore {
           : meta.rule;
     const fullChain = meta.chains.join(' > ');
     const lastSeen = new Date(timestamp).toISOString();
+    const processInfo = normalizeTrafficProcess(meta);
 
     if (meta.domain) {
       let domainMap = this.domainByBackend.get(backendId);
@@ -389,6 +457,7 @@ export class RealtimeStore {
         ips: new Set<string>(),
         rules: new Set<string>(),
         chains: new Set<string>(),
+        processes: new Map(),
       };
 
       domainDelta.totalUpload += meta.upload;
@@ -398,6 +467,22 @@ export class RealtimeStore {
       if (meta.ip) domainDelta.ips.add(meta.ip);
       if (ruleName) domainDelta.rules.add(ruleName);
       if (fullChain) domainDelta.chains.add(fullChain);
+      if (processInfo) {
+        const key = processKey(processInfo.process, processInfo.processPath);
+        const existingProcess = domainDelta.processes.get(key) || {
+          process: processInfo.process,
+          processPath: processInfo.processPath,
+          totalUpload: 0,
+          totalDownload: 0,
+          totalConnections: 0,
+          lastSeen,
+        };
+        existingProcess.totalUpload += meta.upload;
+        existingProcess.totalDownload += meta.download;
+        existingProcess.totalConnections += connections;
+        existingProcess.lastSeen = lastSeen;
+        domainDelta.processes.set(key, existingProcess);
+      }
       domainMap.set(meta.domain, domainDelta);
     }
 
@@ -493,6 +578,7 @@ export class RealtimeStore {
           ips: new Set<string>(),
           rules: new Set<string>(),
           chains: new Set<string>(),
+          processes: new Map(),
         };
         domainDelta.totalUpload += meta.upload;
         domainDelta.totalDownload += meta.download;
@@ -501,6 +587,22 @@ export class RealtimeStore {
         if (meta.ip) domainDelta.ips.add(meta.ip);
         if (ruleName) domainDelta.rules.add(ruleName);
         if (fullChain) domainDelta.chains.add(fullChain);
+        if (processInfo) {
+          const key = processKey(processInfo.process, processInfo.processPath);
+          const existingProcess = domainDelta.processes.get(key) || {
+            process: processInfo.process,
+            processPath: processInfo.processPath,
+            totalUpload: 0,
+            totalDownload: 0,
+            totalConnections: 0,
+            lastSeen,
+          };
+          existingProcess.totalUpload += meta.upload;
+          existingProcess.totalDownload += meta.download;
+          existingProcess.totalConnections += connections;
+          existingProcess.lastSeen = lastSeen;
+          domainDelta.processes.set(key, existingProcess);
+        }
         domainMap.set(meta.domain, domainDelta);
       }
 
@@ -535,6 +637,37 @@ export class RealtimeStore {
         if (ruleName) ipDelta.rules.add(ruleName);
         ipMap.set(meta.ip, ipDelta);
       }
+    }
+
+    if (processInfo) {
+      let processMap = this.processByBackend.get(backendId);
+      if (!processMap) {
+        processMap = new Map();
+        this.processByBackend.set(backendId, processMap);
+      }
+
+      const key = processKey(processInfo.process, processInfo.processPath);
+      const processDelta = processMap.get(key) || {
+        process: processInfo.process,
+        processPath: processInfo.processPath,
+        totalUpload: 0,
+        totalDownload: 0,
+        totalConnections: 0,
+        lastSeen,
+        domains: new Set<string>(),
+        ips: new Set<string>(),
+        rules: new Set<string>(),
+        chains: new Set<string>(),
+      };
+      processDelta.totalUpload += meta.upload;
+      processDelta.totalDownload += meta.download;
+      processDelta.totalConnections += connections;
+      processDelta.lastSeen = lastSeen;
+      if (meta.domain) processDelta.domains.add(meta.domain);
+      if (meta.ip) processDelta.ips.add(meta.ip);
+      if (ruleName) processDelta.rules.add(ruleName);
+      if (fullChain) processDelta.chains.add(fullChain);
+      processMap.set(key, processDelta);
     }
 
     let ruleMap = this.ruleByBackend.get(backendId);
@@ -748,8 +881,9 @@ export class RealtimeStore {
           for (const chain of delta.chains) chains.add(chain);
           existing.chains = Array.from(chains);
         }
+        mergeDomainProcesses(existing, delta);
       } else {
-        merged.set(domain, {
+        const item: DomainStats = {
           domain,
           totalUpload: delta.totalUpload,
           totalDownload: delta.totalDownload,
@@ -758,7 +892,9 @@ export class RealtimeStore {
           ips: Array.from(delta.ips),
           rules: Array.from(delta.rules),
           chains: Array.from(delta.chains),
-        });
+        };
+        mergeDomainProcesses(item, delta);
+        merged.set(domain, item);
       }
     }
 
@@ -854,12 +990,13 @@ export class RealtimeStore {
         const chains = new Set(existing.chains || []);
         for (const chain of delta.chains) chains.add(chain);
         existing.chains = Array.from(chains);
+        mergeDomainProcesses(existing, delta);
         continue;
       }
 
       // For non-first pages, avoid injecting unknown new rows that can shift boundaries.
       if (offset > 0) continue;
-      merged.set(domain, {
+      const item: DomainStats = {
         domain,
         totalUpload: delta.totalUpload,
         totalDownload: delta.totalDownload,
@@ -868,7 +1005,9 @@ export class RealtimeStore {
         ips: Array.from(delta.ips),
         rules: Array.from(delta.rules),
         chains: Array.from(delta.chains),
-      });
+      };
+      mergeDomainProcesses(item, delta);
+      merged.set(domain, item);
       addedCount += 1;
     }
 
@@ -977,8 +1116,9 @@ export class RealtimeStore {
           if (matchesChainPrefix(full, chain)) chains.add(full);
         }
         existing.chains = Array.from(chains);
+        mergeDomainProcesses(existing, delta);
       } else {
-        merged.set(domain, {
+        const item: DomainStats = {
           domain,
           totalUpload: delta.totalUpload,
           totalDownload: delta.totalDownload,
@@ -987,7 +1127,9 @@ export class RealtimeStore {
           ips: Array.from(delta.ips),
           rules: Array.from(delta.rules),
           chains: Array.from(delta.chains).filter((full) => matchesChainPrefix(full, chain)),
-        });
+        };
+        mergeDomainProcesses(item, delta);
+        merged.set(domain, item);
       }
     }
 
@@ -1118,6 +1260,51 @@ export class RealtimeStore {
       .slice(0, limit);
   }
 
+  mergeProcessStats(backendId: number, base: ProcessStats[], limit = 50): ProcessStats[] {
+    const processMap = this.processByBackend.get(backendId);
+    if (!processMap || processMap.size === 0) {
+      return base;
+    }
+
+    const merged = new Map<string, ProcessStats>();
+    for (const item of base) {
+      merged.set(processKey(item.process, item.processPath), { ...item });
+    }
+
+    for (const [key, delta] of processMap) {
+      const existing = merged.get(key);
+      if (existing) {
+        existing.totalUpload += delta.totalUpload;
+        existing.totalDownload += delta.totalDownload;
+        existing.totalConnections += delta.totalConnections;
+        if (delta.lastSeen > existing.lastSeen) {
+          existing.lastSeen = delta.lastSeen;
+        }
+        existing.domains = Array.from(new Set([...(existing.domains || []), ...delta.domains]));
+        existing.ips = Array.from(new Set([...(existing.ips || []), ...delta.ips]));
+        existing.rules = Array.from(new Set([...(existing.rules || []), ...delta.rules]));
+        existing.chains = Array.from(new Set([...(existing.chains || []), ...delta.chains]));
+      } else {
+        merged.set(key, {
+          process: delta.process,
+          processPath: delta.processPath,
+          totalUpload: delta.totalUpload,
+          totalDownload: delta.totalDownload,
+          totalConnections: delta.totalConnections,
+          lastSeen: delta.lastSeen,
+          domains: Array.from(delta.domains),
+          ips: Array.from(delta.ips),
+          rules: Array.from(delta.rules),
+          chains: Array.from(delta.chains),
+        });
+      }
+    }
+
+    return Array.from(merged.values())
+      .sort((a, b) => (b.totalDownload + b.totalUpload) - (a.totalDownload + a.totalUpload))
+      .slice(0, limit);
+  }
+
   mergeDeviceDomains(
     backendId: number,
     sourceIP: string,
@@ -1159,8 +1346,9 @@ export class RealtimeStore {
           for (const chain of delta.chains) chains.add(chain);
           existing.chains = Array.from(chains);
         }
+        mergeDomainProcesses(existing, delta);
       } else {
-        merged.set(domain, {
+        const item: DomainStats = {
           domain,
           totalUpload: delta.totalUpload,
           totalDownload: delta.totalDownload,
@@ -1169,7 +1357,9 @@ export class RealtimeStore {
           ips: Array.from(delta.ips),
           rules: Array.from(delta.rules),
           chains: Array.from(delta.chains),
-        });
+        };
+        mergeDomainProcesses(item, delta);
+        merged.set(domain, item);
       }
     }
 
@@ -1302,8 +1492,9 @@ export class RealtimeStore {
         const chains = new Set(existing.chains || []);
         for (const full of delta.chains) chains.add(full);
         existing.chains = Array.from(chains);
+        mergeDomainProcesses(existing, delta);
       } else {
-        merged.set(domain, {
+        const item: DomainStats = {
           domain,
           totalUpload: delta.totalUpload,
           totalDownload: delta.totalDownload,
@@ -1312,7 +1503,9 @@ export class RealtimeStore {
           ips: Array.from(delta.ips),
           rules: Array.from(delta.rules),
           chains: Array.from(delta.chains),
-        });
+        };
+        mergeDomainProcesses(item, delta);
+        merged.set(domain, item);
       }
     }
 
@@ -1422,6 +1615,7 @@ export class RealtimeStore {
     this.ipByBackend.delete(backendId);
     this.proxyByBackend.delete(backendId);
     this.deviceByBackend.delete(backendId);
+    this.processByBackend.delete(backendId);
     this.deviceDomainByBackend.delete(backendId);
     this.deviceIPByBackend.delete(backendId);
     this.ruleByBackend.delete(backendId);

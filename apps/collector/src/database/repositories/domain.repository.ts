@@ -8,12 +8,100 @@
  * - Domain proxy statistics
  */
 import type Database from 'better-sqlite3';
-import type { DomainStats, IPStats } from '@neko-master/shared';
+import type { DomainStats, IPStats, ProcessStats } from '@neko-master/shared';
 import { BaseRepository } from './base.repository.js';
 
 export class DomainRepository extends BaseRepository {
   constructor(db: Database.Database) {
     super(db);
+  }
+
+  private getProcessStatsForDomains(
+    backendId: number,
+    domains: string[],
+    start?: string,
+    end?: string,
+    perDomainLimit = 5,
+  ): Map<string, ProcessStats[]> {
+    const uniqueDomains = Array.from(new Set(domains.filter(Boolean)));
+    if (uniqueDomains.length === 0) return new Map();
+
+    const placeholders = uniqueDomains.map(() => '?').join(',');
+    const range = this.parseMinuteRange(start, end);
+    const rows = range
+      ? this.db.prepare(`
+          SELECT
+            domain,
+            process,
+            process_path as processPath,
+            SUM(upload) as totalUpload,
+            SUM(download) as totalDownload,
+            SUM(connections) as totalConnections,
+            MAX(minute) as lastSeen
+          FROM minute_domain_process_stats
+          WHERE backend_id = ? AND minute >= ? AND minute <= ? AND domain IN (${placeholders})
+          GROUP BY domain, process, process_path
+        `).all(backendId, this.toMinuteKey(new Date(start!)), this.toMinuteKey(new Date(end!)), ...uniqueDomains)
+      : this.db.prepare(`
+          SELECT
+            domain,
+            process,
+            process_path as processPath,
+            total_upload as totalUpload,
+            total_download as totalDownload,
+            total_connections as totalConnections,
+            last_seen as lastSeen
+          FROM domain_process_stats
+          WHERE backend_id = ? AND domain IN (${placeholders})
+        `).all(backendId, ...uniqueDomains);
+
+    const byDomain = new Map<string, ProcessStats[]>();
+    for (const row of rows as Array<ProcessStats & { domain: string }>) {
+      if (!row.process && !row.processPath) continue;
+      const list = byDomain.get(row.domain) || [];
+      list.push({
+        process: row.process,
+        processPath: row.processPath || undefined,
+        totalUpload: Number(row.totalUpload || 0),
+        totalDownload: Number(row.totalDownload || 0),
+        totalConnections: Number(row.totalConnections || 0),
+        lastSeen: row.lastSeen || '',
+      });
+      byDomain.set(row.domain, list);
+    }
+
+    for (const [domain, list] of byDomain) {
+      byDomain.set(
+        domain,
+        list
+          .sort((a, b) => (b.totalDownload + b.totalUpload) - (a.totalDownload + a.totalUpload))
+          .slice(0, perDomainLimit),
+      );
+    }
+    return byDomain;
+  }
+
+  enrichDomainProcesses<T extends { data: DomainStats[]; total: number } | DomainStats[]>(
+    backendId: number,
+    result: T,
+    start?: string,
+    end?: string,
+  ): T {
+    const data = Array.isArray(result) ? result : result.data;
+    if (data.length === 0) return result;
+
+    const processesByDomain = this.getProcessStatsForDomains(
+      backendId,
+      data.map(item => item.domain),
+      start,
+      end,
+    );
+
+    for (const item of data) {
+      item.processes = processesByDomain.get(item.domain) || [];
+    }
+
+    return result;
   }
 
   /**
@@ -39,12 +127,14 @@ export class DomainRepository extends BaseRepository {
     
     if (!row) return null;
     
-    return {
+    const result = {
       ...row,
       ips: row.ips ? row.ips.split(',') : [],
       rules: row.rules ? row.rules.split(',') : [],
       chains: row.chains ? row.chains.split(',') : [],
     } as DomainStats;
+
+    return this.enrichDomainProcesses(backendId, [result])[0];
   }
 
   /**
@@ -86,7 +176,7 @@ export class DomainRepository extends BaseRepository {
         chains: string | null;
       }>;
 
-      return rows.map(row => {
+      const data = rows.map(row => {
         const rules = row.rules ? row.rules.split(',').filter(Boolean) : [];
         const chains = row.chains ? row.chains.split(',').filter(Boolean) : [];
         return {
@@ -96,6 +186,7 @@ export class DomainRepository extends BaseRepository {
           chains: this.expandShortChainsForRules(backendId, chains, rules),
         };
       }) as DomainStats[];
+      return this.enrichDomainProcesses(backendId, data, start, end);
     }
 
     const stmt = this.db.prepare(`
@@ -117,7 +208,7 @@ export class DomainRepository extends BaseRepository {
       chains: string | null;
     }>;
     
-    return rows.map(row => {
+    const data = rows.map(row => {
       const rules = row.rules ? row.rules.split(',').filter(Boolean) : [];
       const chains = row.chains ? row.chains.split(',').filter(Boolean) : [];
       return {
@@ -127,6 +218,7 @@ export class DomainRepository extends BaseRepository {
         chains: this.expandShortChainsForRules(backendId, chains, rules),
       };
     }) as DomainStats[];
+    return this.enrichDomainProcesses(backendId, data);
   }
 
   /**
@@ -161,7 +253,12 @@ export class DomainRepository extends BaseRepository {
       const rows = stmt.all(backendId, resolved.startKey, resolved.endKey, limit) as Array<{
         domain: string; totalUpload: number; totalDownload: number; totalConnections: number; lastSeen: string;
       }>;
-      return rows.map(row => ({ ...row, ips: [], rules: [], chains: [] })) as DomainStats[];
+      return this.enrichDomainProcesses(
+        backendId,
+        rows.map(row => ({ ...row, ips: [], rules: [], chains: [] })) as DomainStats[],
+        start,
+        end,
+      );
     }
 
     const stmt = this.db.prepare(`
@@ -175,7 +272,10 @@ export class DomainRepository extends BaseRepository {
     const rows = stmt.all(backendId, limit) as Array<{
       domain: string; totalUpload: number; totalDownload: number; totalConnections: number; lastSeen: string;
     }>;
-    return rows.map(row => ({ ...row, ips: [], rules: [], chains: [] })) as DomainStats[];
+    return this.enrichDomainProcesses(
+      backendId,
+      rows.map(row => ({ ...row, ips: [], rules: [], chains: [] })) as DomainStats[],
+    );
   }
 
   /**
@@ -280,7 +380,7 @@ export class DomainRepository extends BaseRepository {
         };
       }) as DomainStats[];
 
-      return { data, total };
+      return this.enrichDomainProcesses(backendId, { data, total }, opts.start, opts.end);
     }
 
     const whereClause = search
@@ -325,7 +425,7 @@ export class DomainRepository extends BaseRepository {
       };
     }) as DomainStats[];
 
-    return { data, total };
+    return this.enrichDomainProcesses(backendId, { data, total });
   }
 
   /**

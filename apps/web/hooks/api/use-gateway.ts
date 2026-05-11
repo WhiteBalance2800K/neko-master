@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { QUERY_CONFIG } from "@/lib/query-config";
+import { getGatewayConnectionsQueryKey } from "@/lib/stats-query-keys";
 
 const PROVIDERS_KEY = "gatewayProviders";
 const PROXIES_KEY = "gatewayProxies";
@@ -41,6 +42,22 @@ export function useGatewayProxies({
     queryFn: () => api.getGatewayProxies(activeBackendId),
     enabled: !!activeBackendId && enabled,
     staleTime: 5 * 60 * 1000, // 5 分钟
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useGatewayConnections({
+  activeBackendId,
+  limit = 100,
+  enabled = true,
+}: UseGatewayOptions & { limit?: number }) {
+  return useQuery({
+    queryKey: getGatewayConnectionsQueryKey(activeBackendId, limit),
+    queryFn: () => api.getGatewayConnections(activeBackendId, limit),
+    enabled: !!activeBackendId && enabled,
+    staleTime: QUERY_CONFIG.STALE_TIME.REALTIME,
+    refetchInterval: enabled ? 3000 : false,
+    refetchIntervalInBackground: true,
     placeholderData: (previous) => previous,
   });
 }

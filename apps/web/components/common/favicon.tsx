@@ -68,7 +68,7 @@ export function Favicon({ domain, size = "md", className }: FaviconProps) {
     return (
       <div
         className={cn(
-          "rounded-lg flex items-center justify-center bg-gradient-to-br",
+          "rounded-md flex items-center justify-center bg-gradient-to-br",
           gradient,
           sizeMap[size],
           className
@@ -82,7 +82,7 @@ export function Favicon({ domain, size = "md", className }: FaviconProps) {
   return (
     <div
       className={cn(
-        "rounded-lg overflow-hidden bg-slate-800/50 flex items-center justify-center relative shrink-0",
+        "rounded-md overflow-hidden bg-slate-800/50 flex items-center justify-center relative shrink-0",
         sizeMap[size],
         className
       )}
@@ -100,7 +100,7 @@ export function Favicon({ domain, size = "md", className }: FaviconProps) {
         src={faviconUrl}
         alt={cleanedDomain}
         className={cn(
-          "w-full h-full object-cover p-0.5",
+          "w-full h-full object-cover scale-[1.08]",
           loading ? "opacity-0" : "opacity-100"
         )}
         onError={() => setError(true)}
@@ -119,7 +119,7 @@ export function DomainInitial({ domain, size = "md", className }: FaviconProps) 
   return (
     <div
       className={cn(
-        "rounded-lg flex items-center justify-center bg-gradient-to-br font-semibold text-white",
+        "rounded-md flex items-center justify-center bg-gradient-to-br font-semibold text-white",
         gradient,
         sizeMap[size],
         size === "sm" ? "text-xs" : size === "lg" ? "text-xl" : "text-sm",

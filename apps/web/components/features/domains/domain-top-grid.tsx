@@ -91,7 +91,7 @@ export function DomainTopGrid({ data, limit = 5, onViewAll }: DomainTopGridProps
                   <img
                     src={getFaviconForDomain(domain.domain)}
                     alt=""
-                    className="w-5 h-5 rounded"
+                    className="w-5 h-5 rounded-md object-cover scale-[1.08]"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = "none";

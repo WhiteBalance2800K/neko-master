@@ -23,6 +23,8 @@ export interface TrafficUpdate {
   download: number;
   connections?: number;
   sourceIP?: string;
+  process?: string;
+  processPath?: string;
   timestampMs?: number;
 }
 
@@ -83,6 +85,8 @@ export class BatchBuffer {
       update.rule,
       update.rulePayload,
       update.sourceIP || "",
+      update.process || "",
+      update.processPath || "",
     ].join(":");
     const existing = this.buffer.get(key);
     const connections = normalizeConnections(update.connections);
@@ -155,6 +159,8 @@ export class BatchBuffer {
         const reduceSQLiteWrites = clickHouseWriter.isHealthy() && process.env.CH_DISABLE_SQLITE_REDUCTION !== '1';
         if (!skipSqliteStatsWrites) {
           db.batchUpdateTrafficStats(backendId, updates, reduceSQLiteWrites);
+        } else {
+          db.batchUpdateDomainProcessStats(backendId, updates);
         }
         if (clickHouseWriter.isEnabled()) {
           pendingTrafficWrite = clickHouseWriter.writeTrafficBatch(

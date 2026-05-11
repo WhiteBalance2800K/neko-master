@@ -1,5 +1,5 @@
 import { WebSocketServer as WSServer, WebSocket } from 'ws';
-import type { StatsSummary, DomainStats, IPStats, ProxyStats, CountryStats, DeviceStats, RuleStats, HourlyStats } from '@neko-master/shared';
+import type { StatsSummary, DomainStats, IPStats, ProxyStats, CountryStats, DeviceStats, ProcessStats, RuleStats, HourlyStats } from '@neko-master/shared';
 import type { StatsDatabase } from '../db/db.js';
 import type { StatsService } from '../stats/stats.service.js';
 import type { SummaryFieldKey, SummaryFieldMask } from './websocket.types.js';
@@ -109,6 +109,7 @@ const SUMMARY_FIELD_KEYS: SummaryFieldKey[] = [
   'proxyStats',
   'countryStats',
   'deviceStats',
+  'processStats',
   'ruleStats',
   'hourlyStats',
 ];
@@ -122,6 +123,7 @@ const DEFAULT_SUMMARY_FIELDS: SummaryFieldMask = {
   proxyStats: true,
   countryStats: true,
   deviceStats: true,
+  processStats: true,
   ruleStats: true,
   hourlyStats: true,
 };
@@ -133,6 +135,7 @@ const EMPTY_SUMMARY_FIELDS: SummaryFieldMask = {
   proxyStats: false,
   countryStats: false,
   deviceStats: false,
+  processStats: false,
   ruleStats: false,
   hourlyStats: false,
 };
@@ -173,6 +176,7 @@ export class StatsWebSocketServer {
     proxyStats?: ProxyStats[];
     countryStats?: CountryStats[];
     deviceStats?: DeviceStats[];
+    processStats?: ProcessStats[];
     ruleStats?: RuleStats[];
     hourlyStats?: HourlyStats[];
     ts: number;
@@ -583,7 +587,7 @@ export class StatsWebSocketServer {
   }
 
   private needsCoreSummary(fields: SummaryFieldMask): boolean {
-    // Note: countryStats and deviceStats are intentionally omitted here
+    // Note: countryStats, deviceStats, and processStats are intentionally omitted here
     // because they are fetched via independent DB queries/routes.
     return (
       fields.totals ||
@@ -995,9 +999,10 @@ export class StatsWebSocketServer {
       const fetchCore = needsCoreSummary && (!baseCacheValid || baseCached?.summary === undefined);
       const fetchCountry = summaryFields.countryStats && (!baseCacheValid || baseCached?.countryStats === undefined);
       const fetchDevice = summaryFields.deviceStats && (!baseCacheValid || baseCached?.deviceStats === undefined);
+      const fetchProcess = summaryFields.processStats && (!baseCacheValid || baseCached?.processStats === undefined);
 
-      if (fetchCore || fetchCountry || fetchDevice) {
-        const [summaryRes, countryStatsRes, deviceStatsRes] = await Promise.all([
+      if (fetchCore || fetchCountry || fetchDevice || fetchProcess) {
+        const [summaryRes, countryStatsRes, deviceStatsRes, processStatsRes] = await Promise.all([
           fetchCore
             ? this.statsService.getSummaryWithRouting(resolvedBackendId, timeRange)
             : Promise.resolve(null),
@@ -1006,6 +1011,9 @@ export class StatsWebSocketServer {
             : Promise.resolve(undefined),
           fetchDevice
             ? this.statsService.getDeviceStatsWithRouting(resolvedBackendId, timeRange, 50)
+            : Promise.resolve(undefined),
+          fetchProcess
+            ? this.statsService.getProcessStatsWithRouting(resolvedBackendId, timeRange, 50)
             : Promise.resolve(undefined),
         ]);
 
@@ -1024,6 +1032,7 @@ export class StatsWebSocketServer {
           proxyStats?: ProxyStats[];
           countryStats?: CountryStats[];
           deviceStats?: DeviceStats[];
+          processStats?: ProcessStats[];
           ruleStats?: RuleStats[];
           hourlyStats?: HourlyStats[];
           ts: number;
@@ -1054,6 +1063,10 @@ export class StatsWebSocketServer {
           nextCached.deviceStats = deviceStatsRes;
         }
 
+        if (fetchProcess) {
+          nextCached.processStats = processStatsRes;
+        }
+
         baseCached = nextCached;
         this.baseSummaryCache.set(baseCacheKey, nextCached);
         
@@ -1074,6 +1087,7 @@ export class StatsWebSocketServer {
     const proxyStats = includeSummaryData && summaryFields.proxyStats ? (baseCached?.proxyStats || []) : [];
     const countryStats = includeSummaryData && summaryFields.countryStats ? baseCached?.countryStats : undefined;
     const deviceStats = includeSummaryData && summaryFields.deviceStats ? baseCached?.deviceStats : undefined;
+    const processStats = includeSummaryData && summaryFields.processStats ? baseCached?.processStats : undefined;
     const ruleStats = includeSummaryData && summaryFields.ruleStats ? baseCached?.ruleStats : undefined;
     const hourlyStats = includeSummaryData && summaryFields.hourlyStats ? (baseCached?.hourlyStats || []) : [];
 
@@ -1127,6 +1141,7 @@ export class StatsWebSocketServer {
       proxyStats,
       countryStats,
       deviceStats,
+      processStats,
       deviceDetailSourceIP: deviceDetail?.sourceIP,
       deviceDomains,
       deviceIPs,

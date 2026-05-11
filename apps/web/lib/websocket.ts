@@ -11,6 +11,7 @@ export type SummaryField =
   | 'proxyStats'
   | 'countryStats'
   | 'deviceStats'
+  | 'processStats'
   | 'ruleStats'
   | 'hourlyStats';
 
@@ -21,6 +22,7 @@ const SUMMARY_FIELD_SET = new Set<SummaryField>([
   'proxyStats',
   'countryStats',
   'deviceStats',
+  'processStats',
   'ruleStats',
   'hourlyStats',
 ]);

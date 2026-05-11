@@ -11,6 +11,8 @@ type TrafficUpdate struct {
 	Download    int64    `json:"download"`
 	Connections int64    `json:"connections,omitempty"`
 	SourceIP    string   `json:"sourceIP,omitempty"`
+	Process     string   `json:"process,omitempty"`
+	ProcessPath string   `json:"processPath,omitempty"`
 	TimestampMs int64    `json:"timestampMs"`
 }
 
@@ -22,6 +24,8 @@ type FlowSnapshot struct {
 	Chains      []string
 	Rule        string
 	RulePayload string
+	Process     string
+	ProcessPath string
 	Upload      int64
 	Download    int64
 	TimestampMs int64

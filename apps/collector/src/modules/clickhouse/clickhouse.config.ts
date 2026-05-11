@@ -180,6 +180,8 @@ CREATE TABLE IF NOT EXISTS ${config.database}.traffic_minute (
   domain String,
   ip String,
   source_ip String,
+  process String DEFAULT '',
+  process_path String DEFAULT '',
   chain String,
   rule String,
   upload UInt64,
@@ -242,6 +244,8 @@ CREATE TABLE IF NOT EXISTS ${config.database}.traffic_detail (
   domain String,
   ip String,
   source_ip String,
+  process String DEFAULT '',
+  process_path String DEFAULT '',
   chain String,
   rule String,
   upload UInt64,
@@ -254,6 +258,7 @@ TTL minute + INTERVAL 90 DAY
 SETTINGS index_granularity = 8192
 `,
   );
+
   // Buffer tables — data is written to memory first, then auto-flushed to the
   // underlying MergeTree tables.  This reduces INSERT frequency from ~40/min to
   // ~2/min and dramatically reduces ClickHouse background merge I/O.
@@ -300,6 +305,19 @@ ENGINE = Buffer(
 )
 `,
   );
+
+  const processColumnAlters = [
+    `ALTER TABLE ${config.database}.traffic_minute ADD COLUMN IF NOT EXISTS process String DEFAULT '' AFTER source_ip`,
+    `ALTER TABLE ${config.database}.traffic_minute ADD COLUMN IF NOT EXISTS process_path String DEFAULT '' AFTER process`,
+    `ALTER TABLE ${config.database}.traffic_detail ADD COLUMN IF NOT EXISTS process String DEFAULT '' AFTER source_ip`,
+    `ALTER TABLE ${config.database}.traffic_detail ADD COLUMN IF NOT EXISTS process_path String DEFAULT '' AFTER process`,
+    `ALTER TABLE ${config.database}.traffic_detail_buffer ADD COLUMN IF NOT EXISTS process String DEFAULT '' AFTER source_ip`,
+    `ALTER TABLE ${config.database}.traffic_detail_buffer ADD COLUMN IF NOT EXISTS process_path String DEFAULT '' AFTER process`,
+  ];
+
+  for (const query of processColumnAlters) {
+    await runClickHouseQuery(config, query);
+  }
 
   console.info('[ClickHouse] Schema ensured (traffic_minute, country_minute, traffic_agg, traffic_detail, buffer tables)');
 }

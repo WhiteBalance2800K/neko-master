@@ -2,7 +2,7 @@
  * Stats module type definitions
  */
 
-import type { DomainStats, IPStats, ProxyStats, RuleStats, HourlyStats, DeviceStats } from '@neko-master/shared';
+import type { DomainStats, IPStats, ProxyStats, RuleStats, HourlyStats, DeviceStats, ProcessStats } from '@neko-master/shared';
 
 export interface TimeRangeQuery {
   start?: string;
@@ -60,6 +60,12 @@ export interface DeviceQuery extends TimeRangeQuery {
   limit?: string;
 }
 
+export interface ProcessQuery extends TimeRangeQuery {
+  process?: string;
+  processPath?: string;
+  limit?: string;
+}
+
 export interface TrendQuery extends TimeRangeQuery {
   minutes?: string;
   bucketMinutes?: string;
@@ -89,6 +95,7 @@ export interface SummaryResponse {
   topIPs: IPStats[];
   proxyStats: ProxyStats[];
   ruleStats: RuleStats[];
+  processStats?: ProcessStats[];
   hourlyStats: HourlyStats[];
 }
 
@@ -132,4 +139,4 @@ export interface CountryStats {
   totalConnections: number;
 }
 
-export type { DomainStats, IPStats, ProxyStats, RuleStats, HourlyStats, DeviceStats };
+export type { DomainStats, IPStats, ProxyStats, RuleStats, HourlyStats, DeviceStats, ProcessStats };

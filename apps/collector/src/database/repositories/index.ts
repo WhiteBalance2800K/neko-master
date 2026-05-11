@@ -13,6 +13,7 @@ export { SurgeRepository } from './surge.repository.js';
 export { TimeseriesRepository } from './timeseries.repository.js';
 export { CountryRepository } from './country.repository.js';
 export { DeviceRepository } from './device.repository.js';
+export { ProcessRepository } from './process.repository.js';
 export { ProxyRepository } from './proxy.repository.js';
 export { RuleRepository } from './rule.repository.js';
 export { IPRepository } from './ip.repository.js';

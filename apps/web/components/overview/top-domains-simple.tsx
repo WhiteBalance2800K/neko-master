@@ -133,14 +133,14 @@ export const TopDomainsSimple = React.memo(function TopDomainsSimple({
                 </span>
                 
                 {/* Favicon */}
-                <div className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-5 h-5 rounded-md bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                   {faviconDisabled ? (
                     <Globe className="w-3 h-3 text-muted-foreground" />
                   ) : (
                     <img
                       src={getFaviconForDomain(domain.domain)}
                       alt=""
-                      className="w-4 h-4"
+                      className="w-full h-full object-cover scale-[1.08]"
                       loading="lazy"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;

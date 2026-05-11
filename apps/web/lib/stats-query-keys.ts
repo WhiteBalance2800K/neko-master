@@ -50,6 +50,18 @@ export function getDevicesQueryKey(backendId?: number, limit = 50, range?: TimeR
   ] as const;
 }
 
+export function getProcessesQueryKey(backendId?: number, limit = 50, range?: TimeRange) {
+  return [
+    "stats",
+    "processes",
+    {
+      backendId: backendId ?? null,
+      limit,
+      ...normalizeRange(range),
+    },
+  ] as const;
+}
+
 export function getProxiesQueryKey(backendId?: number, limit = 50, range?: TimeRange) {
   return [
     "stats",
@@ -278,6 +290,89 @@ export function getDeviceIPsQueryKey(
       sourceIP: sourceIP ?? "",
       backendId: backendId ?? null,
       ...normalizeRange(range),
+    },
+  ] as const;
+}
+
+export function getProcessDomainsQueryKey(
+  process: string | null,
+  processPath: string | null,
+  backendId?: number,
+  range?: TimeRange,
+) {
+  return [
+    "stats",
+    "process-domains",
+    {
+      process: process ?? "",
+      processPath: processPath ?? "",
+      backendId: backendId ?? null,
+      ...normalizeRange(range),
+    },
+  ] as const;
+}
+
+export function getProcessIPsQueryKey(
+  process: string | null,
+  processPath: string | null,
+  backendId?: number,
+  range?: TimeRange,
+) {
+  return [
+    "stats",
+    "process-ips",
+    {
+      process: process ?? "",
+      processPath: processPath ?? "",
+      backendId: backendId ?? null,
+      ...normalizeRange(range),
+    },
+  ] as const;
+}
+
+export function getProcessRulesQueryKey(
+  process: string | null,
+  processPath: string | null,
+  backendId?: number,
+  range?: TimeRange,
+) {
+  return [
+    "stats",
+    "process-rules",
+    {
+      process: process ?? "",
+      processPath: processPath ?? "",
+      backendId: backendId ?? null,
+      ...normalizeRange(range),
+    },
+  ] as const;
+}
+
+export function getProcessProxiesQueryKey(
+  process: string | null,
+  processPath: string | null,
+  backendId?: number,
+  range?: TimeRange,
+) {
+  return [
+    "stats",
+    "process-proxies",
+    {
+      process: process ?? "",
+      processPath: processPath ?? "",
+      backendId: backendId ?? null,
+      ...normalizeRange(range),
+    },
+  ] as const;
+}
+
+export function getGatewayConnectionsQueryKey(backendId?: number, limit = 100) {
+  return [
+    "gateway",
+    "connections",
+    {
+      backendId: backendId ?? null,
+      limit,
     },
   ] as const;
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
 import {
   Server,
   Radio,
@@ -96,7 +95,6 @@ interface HeaderProps {
 
   // Loading states
   isLoading: boolean;
-  isTransitioning?: boolean;
 
   // Translations
   backendT: (key: string) => string;
@@ -125,7 +123,6 @@ export function Header({
   onNavigate,
   activeTab,
   isLoading,
-  isTransitioning,
   backendT,
   dashboardT,
 }: HeaderProps) {
@@ -137,22 +134,6 @@ export function Header({
   const settingsT = useTranslations("settings");
   const themeT = useTranslations("theme");
   const aboutT = useTranslations("about");
-
-  const [showProgress, setShowProgress] = React.useState(false);
-
-  React.useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-    if (isTransitioning) {
-      setShowProgress(true);
-    } else {
-      // Add a small delay before hiding to let the animation play out a bit
-      // and prevent it from flashing too quickly
-      timeout = setTimeout(() => {
-        setShowProgress(false);
-      }, 800);
-    }
-    return () => clearTimeout(timeout);
-  }, [isTransitioning]);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-md">
@@ -586,12 +567,6 @@ export function Header({
 
         </div>
       </div>
-      {/* Transition progress bar - sits at the bottom edge of the header */}
-      {showProgress && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden">
-          <div className="h-full w-1/3 bg-primary/60 rounded-full animate-progress-indeterminate" />
-        </div>
-      )}
     </header>
   );
 }

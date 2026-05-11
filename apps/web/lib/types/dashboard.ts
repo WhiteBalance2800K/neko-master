@@ -14,10 +14,7 @@ export type BackendStatus = "healthy" | "unhealthy" | "unknown";
 
 export type TabId =
   | "overview"
-  | "domains"
-  | "countries"
-  | "devices"
-  | "proxies"
-  | "rules"
-  | "network"
-  | "health";
+  | "links"
+  | "targets"
+  | "sources"
+  | "system";

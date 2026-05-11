@@ -6,10 +6,10 @@ while read local_ref local_oid remote_ref remote_oid; do
     echo "🔍 Pushing to main — running pre-push checks..."
 
     echo "→ Running collector type check..."
-    pnpm --filter collector exec tsc --noEmit || exit 1
+    corepack pnpm --filter @neko-master/collector exec tsc --noEmit || exit 1
 
     echo "→ Building web app..."
-    pnpm --filter @neko-master/web build || exit 1
+    corepack pnpm --filter @neko-master/web build || exit 1
 
     echo "✅ All checks passed."
     exit 0

@@ -18,6 +18,7 @@ import type {
 import {
   getCountriesQueryKey,
   getDevicesQueryKey,
+  getProcessesQueryKey,
   getSummaryQueryKey,
 } from "@/lib/stats-query-keys";
 import { useStableTimeRange } from "@/lib/hooks/use-stable-time-range";
@@ -122,23 +123,20 @@ export function useDashboard(): UseDashboardReturn {
   });
   const isWsSummaryTab =
     activeTab === "overview" ||
-    activeTab === "countries" ||
-    activeTab === "proxies" ||
-    activeTab === "rules" ||
-    activeTab === "devices";
+    activeTab === "links" ||
+    activeTab === "targets" ||
+    activeTab === "sources";
 
   const wsSummaryFields = useMemo<SummaryField[] | undefined>(() => {
     switch (activeTab) {
       case "overview":
-        return ["totals", "topDomains", "proxyStats", "countryStats"];
-      case "countries":
+        return ["totals", "topDomains", "proxyStats", "countryStats", "deviceStats", "processStats", "ruleStats"];
+      case "targets":
         return ["countryStats"];
-      case "proxies":
-        return ["proxyStats"];
-      case "rules":
-        return ["totals"];
-      case "devices":
-        return ["deviceStats"];
+      case "links":
+        return ["proxyStats", "ruleStats"];
+      case "sources":
+        return ["deviceStats", "processStats"];
       default:
         return undefined;
     }
@@ -211,6 +209,9 @@ export function useDashboard(): UseDashboardReturn {
         if (wsSummaryFieldSet.has("deviceStats") && stats.deviceStats) {
           summaryPatch.deviceStats = stats.deviceStats;
         }
+        if (wsSummaryFieldSet.has("processStats") && stats.processStats) {
+          summaryPatch.processStats = stats.processStats;
+        }
         if (wsSummaryFieldSet.has("ruleStats") && stats.ruleStats) {
           summaryPatch.ruleStats = stats.ruleStats;
         }
@@ -237,6 +238,12 @@ export function useDashboard(): UseDashboardReturn {
             stats.deviceStats
           );
         }
+        if (stats.processStats) {
+          queryClient.setQueryData(
+            getProcessesQueryKey(activeBackendId, 50, stableTimeRange),
+            stats.processStats
+          );
+        }
       },
       [activeBackendId, queryClient, stableTimeRange, wsSummaryFieldSet]
     ),
@@ -252,11 +259,11 @@ export function useDashboard(): UseDashboardReturn {
   const hasWsCountries =
     wsRealtimeActive &&
     !!wsSummary?.countryStats &&
-    (activeTab === "overview" || activeTab === "countries");
+    (activeTab === "overview" || activeTab === "targets");
 
   const needsSummaryData =
-    activeTab === "overview" || activeTab === "proxies" || activeTab === "rules" || activeTab === "devices";
-  const needsCountries = activeTab === "overview" || activeTab === "countries";
+    activeTab === "overview" || activeTab === "links" || activeTab === "sources";
+  const needsCountries = activeTab === "overview" || activeTab === "targets";
 
   // Stats Queries
   const summaryQuery = useQuery({
@@ -418,7 +425,7 @@ export function useDashboard(): UseDashboardReturn {
   useEffect(() => {
     if (!autoRefresh || !isRollingTimePreset(timePreset)) return;
     const intervalMs =
-      activeTab === "rules" ? 30000 : shouldReducePolling ? 30000 : 5000;
+      activeTab === "links" ? 30000 : shouldReducePolling ? 30000 : 5000;
     const interval = setInterval(() => {
       setAutoRefreshTick((tick) => (tick + 1) % 3600);
       setTimeRange(getPresetTimeRange(timePreset));

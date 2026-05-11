@@ -5,13 +5,10 @@
   },
   "nav": {
     "overview": "Overview",
-    "domains": "Domains",
-    "countries": "Regions",
-    "devices": "Devices",
-    "proxies": "Proxies",
-    "rules": "Rules",
-    "network": "Network",
-    "health": "Health",
+    "links": "Links",
+    "targets": "Targets",
+    "sources": "Sources",
+    "system": "System",
     "settings": "Settings",
     "showcaseMode": "Showcase Mode"
   },
@@ -167,6 +164,9 @@
     "unknown": "Unknown",
     "ips": "IPs",
     "ipCount": "IPs",
+    "process": "Process",
+    "processes": "Processes",
+    "unknownProcess": "Unknown process",
     "proxy": "Proxy",
     "proxyTraffic": "Proxy Traffic Breakdown",
 
@@ -534,6 +534,34 @@
       "emergencyResetDescription": "You are currently in Emergency Access Mode. After resetting the token, the old one will be invalid.",
       "emergencyResetWarning": "For your security, please remove the backend environment variable FORCE_ACCESS_CONTROL_OFF and restart the service after the reset is complete."
     }
+  },
+  "overviewPath": {
+    "source": "Source",
+    "process": "Process",
+    "target": "Target",
+    "rule": "Rule",
+    "proxy": "Proxy",
+    "region": "Region"
+  },
+  "processes": {
+    "title": "Processes",
+    "unknown": "Unknown process",
+    "noData": "No process data",
+    "noDataHint": "The current gateway has not reported process metadata yet."
+  },
+  "connections": {
+    "title": "Live Connections",
+    "process": "Process",
+    "target": "Target",
+    "rule": "Rule",
+    "proxy": "Proxy Chain",
+    "loading": "Loading live connections...",
+    "empty": "No live connections",
+    "unsupported": "The current backend does not expose live per-connection data",
+    "unavailable": "Live connections unavailable"
+  },
+  "system": {
+    "openBackendSettings": "Open backend settings"
   },
   "health": {
     "title": "Node Health",

@@ -703,6 +703,141 @@ const statsController: FastifyPluginAsync = async (fastify: FastifyInstance): Pr
     );
   });
 
+  // Get process statistics for a specific backend
+  fastify.get('/processes', async (request, reply) => {
+    const backendId = getBackendId(request, service);
+    const timeRange = getTimeRange(request, reply, fastify.authService.isShowcaseMode());
+
+    if (timeRange === null) {
+      return;
+    }
+    if (backendId === null) {
+      return reply.status(404).send({ error: 'No backend specified or active' });
+    }
+
+    const query = request.query as Record<string, string | undefined>;
+    const { limit } = query;
+    const effectiveLimit = service.parseLimit(limit, 50, 2000);
+
+    return await service.getProcessStatsWithRouting(
+      backendId,
+      timeRange,
+      effectiveLimit,
+    );
+  });
+
+  // Get domains for a specific process
+  fastify.get('/processes/domains', async (request, reply) => {
+    const backendId = getBackendId(request, service);
+    const timeRange = getTimeRange(request, reply, fastify.authService.isShowcaseMode());
+
+    if (timeRange === null) {
+      return;
+    }
+    if (backendId === null) {
+      return reply.status(404).send({ error: 'No backend specified or active' });
+    }
+
+    const query = request.query as Record<string, string | undefined>;
+    const { process, processPath, limit } = query;
+    if (!process) {
+      return reply.status(400).send({ error: 'Process parameter is required' });
+    }
+    const effectiveLimit = service.parseLimit(limit, 5000, 20000);
+
+    return await service.getProcessDomainsWithRouting(
+      backendId,
+      process,
+      processPath,
+      timeRange,
+      effectiveLimit,
+    );
+  });
+
+  // Get IPs for a specific process
+  fastify.get('/processes/ips', async (request, reply) => {
+    const backendId = getBackendId(request, service);
+    const timeRange = getTimeRange(request, reply, fastify.authService.isShowcaseMode());
+
+    if (timeRange === null) {
+      return;
+    }
+    if (backendId === null) {
+      return reply.status(404).send({ error: 'No backend specified or active' });
+    }
+
+    const query = request.query as Record<string, string | undefined>;
+    const { process, processPath, limit } = query;
+    if (!process) {
+      return reply.status(400).send({ error: 'Process parameter is required' });
+    }
+    const effectiveLimit = service.parseLimit(limit, 5000, 20000);
+
+    return await service.getProcessIPsWithRouting(
+      backendId,
+      process,
+      processPath,
+      timeRange,
+      effectiveLimit,
+    );
+  });
+
+  // Get rules for a specific process
+  fastify.get('/processes/rules', async (request, reply) => {
+    const backendId = getBackendId(request, service);
+    const timeRange = getTimeRange(request, reply, fastify.authService.isShowcaseMode());
+
+    if (timeRange === null) {
+      return;
+    }
+    if (backendId === null) {
+      return reply.status(404).send({ error: 'No backend specified or active' });
+    }
+
+    const query = request.query as Record<string, string | undefined>;
+    const { process, processPath, limit } = query;
+    if (!process) {
+      return reply.status(400).send({ error: 'Process parameter is required' });
+    }
+    const effectiveLimit = service.parseLimit(limit, 5000, 20000);
+
+    return await service.getProcessRulesWithRouting(
+      backendId,
+      process,
+      processPath,
+      timeRange,
+      effectiveLimit,
+    );
+  });
+
+  // Get proxies for a specific process
+  fastify.get('/processes/proxies', async (request, reply) => {
+    const backendId = getBackendId(request, service);
+    const timeRange = getTimeRange(request, reply, fastify.authService.isShowcaseMode());
+
+    if (timeRange === null) {
+      return;
+    }
+    if (backendId === null) {
+      return reply.status(404).send({ error: 'No backend specified or active' });
+    }
+
+    const query = request.query as Record<string, string | undefined>;
+    const { process, processPath, limit } = query;
+    if (!process) {
+      return reply.status(400).send({ error: 'Process parameter is required' });
+    }
+    const effectiveLimit = service.parseLimit(limit, 5000, 20000);
+
+    return await service.getProcessProxiesWithRouting(
+      backendId,
+      process,
+      processPath,
+      timeRange,
+      effectiveLimit,
+    );
+  });
+
   // Get hourly statistics for a specific backend
   fastify.get('/hourly', async (request, reply) => {
     const backendId = getBackendId(request, service);

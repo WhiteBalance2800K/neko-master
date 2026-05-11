@@ -18,8 +18,47 @@ export interface TrafficUpdate {
   download: number;
   connections?: number;
   sourceIP?: string;
+  process?: string;
+  processPath?: string;
   timestampMs?: number;
 }
+
+type DomainProcessAggregate = {
+  domain: string;
+  process: string;
+  processPath: string;
+  upload: number;
+  download: number;
+  count: number;
+  minute: string;
+};
+
+type ProcessAggregate = {
+  process: string;
+  processPath: string;
+  upload: number;
+  download: number;
+  count: number;
+  lastSeenMs: number;
+  domains: Set<string>;
+  ips: Set<string>;
+  rules: Set<string>;
+  chains: Set<string>;
+};
+
+type ProcessDimAggregate = {
+  timeKey: string;
+  process: string;
+  processPath: string;
+  domain: string;
+  ip: string;
+  sourceIP: string;
+  chain: string;
+  rule: string;
+  upload: number;
+  download: number;
+  connections: number;
+};
 
 export class TrafficWriterRepository extends BaseRepository {
   // Cached prepared statements for single-write path (avoids re-compilation per call)
@@ -33,6 +72,86 @@ export class TrafficWriterRepository extends BaseRepository {
     const safe =
       typeof value === 'number' && Number.isFinite(value) ? value : 1;
     return Math.max(0, Math.floor(safe));
+  }
+
+  private normalizeProcess(update: TrafficUpdate): { process: string; processPath: string } | null {
+    const processPath = (update.processPath || '').trim().slice(0, 512);
+    const explicitProcess = (update.process || '').trim().slice(0, 128);
+    const basename = processPath.split(/[\\/]/).filter(Boolean).pop() || '';
+    const processName = explicitProcess || basename.slice(0, 128);
+    if (!processName && !processPath) return null;
+    return {
+      process: processName || processPath,
+      processPath,
+    };
+  }
+
+  private aggregateDomainProcesses(updates: TrafficUpdate[], nowMs = Date.now()): Map<string, DomainProcessAggregate> {
+    const aggregates = new Map<string, DomainProcessAggregate>();
+    for (const update of updates) {
+      if ((update.upload === 0 && update.download === 0) || !update.domain) continue;
+
+      const proc = this.normalizeProcess(update);
+      if (!proc) continue;
+
+      const connections = this.normalizeConnections(update.connections);
+      const minute = this.toMinuteKey(new Date(update.timestampMs ?? nowMs));
+      const key = `${minute}\0${update.domain}\0${proc.process}\0${proc.processPath}`;
+      const existing = aggregates.get(key);
+      if (existing) {
+        existing.upload += update.upload;
+        existing.download += update.download;
+        existing.count += connections;
+      } else {
+        aggregates.set(key, {
+          domain: update.domain,
+          process: proc.process,
+          processPath: proc.processPath,
+          upload: update.upload,
+          download: update.download,
+          count: connections,
+          minute,
+        });
+      }
+    }
+    return aggregates;
+  }
+
+  batchUpdateDomainProcessStats(backendId: number, updates: TrafficUpdate[]): void {
+    if (updates.length === 0) return;
+
+    const timestamp = new Date().toISOString();
+    const aggregates = this.aggregateDomainProcesses(updates);
+    if (aggregates.size === 0) return;
+
+    const transaction = this.db.transaction(() => {
+      const domainProcessStmt = this.db.prepare(`
+        INSERT INTO domain_process_stats (backend_id, domain, process, process_path, total_upload, total_download, total_connections, last_seen)
+        VALUES (@backendId, @domain, @process, @processPath, @upload, @download, @count, @timestamp)
+        ON CONFLICT(backend_id, domain, process, process_path) DO UPDATE SET
+          total_upload = total_upload + @upload,
+          total_download = total_download + @download,
+          total_connections = total_connections + @count,
+          last_seen = @timestamp
+      `);
+
+      const minuteDomainProcessStmt = this.db.prepare(`
+        INSERT INTO minute_domain_process_stats (backend_id, minute, domain, process, process_path, upload, download, connections)
+        VALUES (@backendId, @minute, @domain, @process, @processPath, @upload, @download, @count)
+        ON CONFLICT(backend_id, minute, domain, process, process_path) DO UPDATE SET
+          upload = upload + @upload,
+          download = download + @download,
+          connections = connections + @count
+      `);
+
+      for (const [, data] of aggregates) {
+        const params = { backendId, ...data, timestamp };
+        domainProcessStmt.run(params);
+        minuteDomainProcessStmt.run(params);
+      }
+    });
+
+    transaction();
   }
 
   private prepareSingleStmts() {
@@ -129,6 +248,48 @@ export class TrafficWriterRepository extends BaseRepository {
         ON CONFLICT(backend_id, hour, domain, ip, source_ip, chain, rule) DO UPDATE SET
           upload = upload + @upload, download = download + @download, connections = connections + 1
       `),
+      domainProcessUpsert: this.db.prepare(`
+        INSERT INTO domain_process_stats (backend_id, domain, process, process_path, total_upload, total_download, total_connections, last_seen)
+        VALUES (@backendId, @domain, @process, @processPath, @upload, @download, @connections, @timestamp)
+        ON CONFLICT(backend_id, domain, process, process_path) DO UPDATE SET
+          total_upload = total_upload + @upload,
+          total_download = total_download + @download,
+          total_connections = total_connections + @connections,
+          last_seen = @timestamp
+      `),
+      minuteDomainProcessUpsert: this.db.prepare(`
+        INSERT INTO minute_domain_process_stats (backend_id, minute, domain, process, process_path, upload, download, connections)
+        VALUES (@backendId, @minute, @domain, @process, @processPath, @upload, @download, @connections)
+        ON CONFLICT(backend_id, minute, domain, process, process_path) DO UPDATE SET
+          upload = upload + @upload,
+          download = download + @download,
+          connections = connections + @connections
+      `),
+      processUpsert: this.db.prepare(`
+        INSERT INTO process_stats (backend_id, process, process_path, total_upload, total_download, total_connections, last_seen, domains, ips, rules, chains)
+        VALUES (@backendId, @process, @processPath, @upload, @download, @connections, @timestamp, @domain, @ip, @rule, @chain)
+        ON CONFLICT(backend_id, process, process_path) DO UPDATE SET
+          total_upload = total_upload + @upload,
+          total_download = total_download + @download,
+          total_connections = total_connections + @connections,
+          last_seen = @timestamp,
+          domains = CASE WHEN @domain = '' THEN process_stats.domains WHEN process_stats.domains IS NULL THEN @domain WHEN LENGTH(process_stats.domains) > 4000 THEN process_stats.domains WHEN INSTR(',' || process_stats.domains || ',', ',' || @domain || ',') > 0 THEN process_stats.domains ELSE process_stats.domains || ',' || @domain END,
+          ips = CASE WHEN @ip = '' THEN process_stats.ips WHEN process_stats.ips IS NULL THEN @ip WHEN LENGTH(process_stats.ips) > 4000 THEN process_stats.ips WHEN INSTR(',' || process_stats.ips || ',', ',' || @ip || ',') > 0 THEN process_stats.ips ELSE process_stats.ips || ',' || @ip END,
+          rules = CASE WHEN @rule = '' THEN process_stats.rules WHEN process_stats.rules IS NULL THEN @rule WHEN LENGTH(process_stats.rules) > 4000 THEN process_stats.rules WHEN INSTR(',' || process_stats.rules || ',', ',' || @rule || ',') > 0 THEN process_stats.rules ELSE process_stats.rules || ',' || @rule END,
+          chains = CASE WHEN @chain = '' THEN process_stats.chains WHEN process_stats.chains IS NULL THEN @chain WHEN LENGTH(process_stats.chains) > 4000 THEN process_stats.chains WHEN INSTR(',' || process_stats.chains || ',', ',' || @chain || ',') > 0 THEN process_stats.chains ELSE process_stats.chains || ',' || @chain END
+      `),
+      minuteProcessDimUpsert: this.db.prepare(`
+        INSERT INTO minute_process_dim_stats (backend_id, minute, process, process_path, domain, ip, source_ip, chain, rule, upload, download, connections)
+        VALUES (@backendId, @minute, @process, @processPath, @domain, @ip, @sourceIP, @chain, @rule, @upload, @download, @connections)
+        ON CONFLICT(backend_id, minute, process, process_path, domain, ip, source_ip, chain, rule) DO UPDATE SET
+          upload = upload + @upload, download = download + @download, connections = connections + @connections
+      `),
+      hourlyProcessDimUpsert: this.db.prepare(`
+        INSERT INTO hourly_process_dim_stats (backend_id, hour, process, process_path, domain, ip, source_ip, chain, rule, upload, download, connections)
+        VALUES (@backendId, @hour, @process, @processPath, @domain, @ip, @sourceIP, @chain, @rule, @upload, @download, @connections)
+        ON CONFLICT(backend_id, hour, process, process_path, domain, ip, source_ip, chain, rule) DO UPDATE SET
+          upload = upload + @upload, download = download + @download, connections = connections + @connections
+      `),
     };
   }
 
@@ -187,6 +348,45 @@ export class TrafficWriterRepository extends BaseRepository {
       const dimParams = { backendId, domain: update.domain || '', ip: update.ip || '', sourceIP: update.sourceIP || '', chain: fullChain, rule: ruleName, upload: update.upload, download: update.download };
       s.minuteDimUpsert.run({ ...dimParams, minute });
       s.hourlyDimUpsert.run({ ...dimParams, hour });
+
+      const proc = this.normalizeProcess(update);
+      if (proc) {
+        const processCommonParams = {
+          backendId,
+          process: proc.process,
+          processPath: proc.processPath,
+          domain: update.domain || '',
+          ip: update.ip || '',
+          sourceIP: update.sourceIP || '',
+          chain: fullChain,
+          rule: ruleName,
+          upload: update.upload,
+          download: update.download,
+          connections: 1,
+          timestamp,
+          minute,
+          hour,
+        };
+        s.processUpsert.run(processCommonParams);
+        s.minuteProcessDimUpsert.run(processCommonParams);
+        s.hourlyProcessDimUpsert.run(processCommonParams);
+      }
+
+      if (domainName !== 'unknown' && proc) {
+        const processParams = {
+          backendId,
+          domain: domainName,
+          process: proc.process,
+          processPath: proc.processPath,
+          upload: update.upload,
+          download: update.download,
+          connections: 1,
+          timestamp,
+          minute,
+        };
+        s.domainProcessUpsert.run(processParams);
+        s.minuteDomainProcessUpsert.run(processParams);
+      }
     });
 
     transaction();
@@ -221,6 +421,10 @@ export class TrafficWriterRepository extends BaseRepository {
     const deviceMap = new Map<string, { sourceIP: string; upload: number; download: number; count: number }>();
     const deviceDomainMap = new Map<string, { sourceIP: string; domain: string; upload: number; download: number; count: number }>();
     const deviceIPMap = new Map<string, { sourceIP: string; ip: string; upload: number; download: number; count: number }>();
+    const domainProcessMap = this.aggregateDomainProcesses(updates, now.getTime());
+    const processMap = new Map<string, ProcessAggregate>();
+    const minuteProcessDimMap = new Map<string, ProcessDimAggregate>();
+    const hourlyProcessDimMap = new Map<string, ProcessDimAggregate>();
 
     // Cache Date→key conversions: many updates share the same timestampMs
     const timeKeyCache = new Map<number, { hourKey: string; minuteKey: string }>();
@@ -243,6 +447,7 @@ export class TrafficWriterRepository extends BaseRepository {
       const finalProxy = update.chains.length > 0 ? update.chains[0] : 'DIRECT';
       const fullChain = update.chains.join(' > ') || update.chain || 'DIRECT';
       const { hourKey, minuteKey } = getTimeKeys(update.timestampMs ?? now.getTime());
+      const proc = this.normalizeProcess(update);
 
       // Aggregate domain stats
       if (update.domain) {
@@ -517,6 +722,75 @@ export class TrafficWriterRepository extends BaseRepository {
           }
         }
       }
+
+      if (proc) {
+        const processKey = `${proc.process}\0${proc.processPath}`;
+        const existingProcess = processMap.get(processKey);
+        if (existingProcess) {
+          existingProcess.upload += update.upload;
+          existingProcess.download += update.download;
+          existingProcess.count += connections;
+          existingProcess.lastSeenMs = Math.max(existingProcess.lastSeenMs, update.timestampMs ?? now.getTime());
+          if (update.domain) existingProcess.domains.add(update.domain);
+          if (update.ip) existingProcess.ips.add(update.ip);
+          if (ruleName) existingProcess.rules.add(ruleName);
+          if (fullChain) existingProcess.chains.add(fullChain);
+        } else {
+          processMap.set(processKey, {
+            process: proc.process,
+            processPath: proc.processPath,
+            upload: update.upload,
+            download: update.download,
+            count: connections,
+            lastSeenMs: update.timestampMs ?? now.getTime(),
+            domains: new Set(update.domain ? [update.domain] : []),
+            ips: new Set(update.ip ? [update.ip] : []),
+            rules: new Set(ruleName ? [ruleName] : []),
+            chains: new Set(fullChain ? [fullChain] : []),
+          });
+        }
+
+        const commonProcessDim = {
+          process: proc.process,
+          processPath: proc.processPath,
+          domain: update.domain || '',
+          ip: update.ip || '',
+          sourceIP: update.sourceIP || '',
+          chain: fullChain,
+          rule: ruleName,
+        };
+        const minuteProcessKey = `${minuteKey}\0${proc.process}\0${proc.processPath}\0${commonProcessDim.domain}\0${commonProcessDim.ip}\0${commonProcessDim.sourceIP}\0${fullChain}\0${ruleName}`;
+        const existingMinuteProcess = minuteProcessDimMap.get(minuteProcessKey);
+        if (existingMinuteProcess) {
+          existingMinuteProcess.upload += update.upload;
+          existingMinuteProcess.download += update.download;
+          existingMinuteProcess.connections += connections;
+        } else {
+          minuteProcessDimMap.set(minuteProcessKey, {
+            timeKey: minuteKey,
+            ...commonProcessDim,
+            upload: update.upload,
+            download: update.download,
+            connections,
+          });
+        }
+
+        const hourlyProcessKey = `${hourKey}\0${proc.process}\0${proc.processPath}\0${commonProcessDim.domain}\0${commonProcessDim.ip}\0${commonProcessDim.sourceIP}\0${fullChain}\0${ruleName}`;
+        const existingHourlyProcess = hourlyProcessDimMap.get(hourlyProcessKey);
+        if (existingHourlyProcess) {
+          existingHourlyProcess.upload += update.upload;
+          existingHourlyProcess.download += update.download;
+          existingHourlyProcess.connections += connections;
+        } else {
+          hourlyProcessDimMap.set(hourlyProcessKey, {
+            timeKey: hourKey,
+            ...commonProcessDim,
+            upload: update.upload,
+            download: update.download,
+            connections,
+          });
+        }
+      }
     }
 
     // Sub-transaction 1: Core aggregation tables
@@ -612,6 +886,101 @@ export class TrafficWriterRepository extends BaseRepository {
         for (const [chain, data] of chainMap) { proxyStmt.run({ backendId, chain, upload: data.upload, download: data.download, count: data.count, timestamp }); }
       });
       tx1Light();
+    }
+
+    const txProcess = this.db.transaction(() => {
+      const domainProcessStmt = this.db.prepare(`
+        INSERT INTO domain_process_stats (backend_id, domain, process, process_path, total_upload, total_download, total_connections, last_seen)
+        VALUES (@backendId, @domain, @process, @processPath, @upload, @download, @count, @timestamp)
+        ON CONFLICT(backend_id, domain, process, process_path) DO UPDATE SET
+          total_upload = total_upload + @upload,
+          total_download = total_download + @download,
+          total_connections = total_connections + @count,
+          last_seen = @timestamp
+      `);
+      const minuteDomainProcessStmt = this.db.prepare(`
+        INSERT INTO minute_domain_process_stats (backend_id, minute, domain, process, process_path, upload, download, connections)
+        VALUES (@backendId, @minute, @domain, @process, @processPath, @upload, @download, @count)
+        ON CONFLICT(backend_id, minute, domain, process, process_path) DO UPDATE SET
+          upload = upload + @upload,
+          download = download + @download,
+          connections = connections + @count
+      `);
+      const processStmt = this.db.prepare(`
+        INSERT INTO process_stats (backend_id, process, process_path, total_upload, total_download, total_connections, last_seen, domains, ips, rules, chains)
+        VALUES (@backendId, @process, @processPath, @upload, @download, @count, @timestamp, @domains, @ips, @rules, @chains)
+        ON CONFLICT(backend_id, process, process_path) DO UPDATE SET
+          total_upload = total_upload + @upload,
+          total_download = total_download + @download,
+          total_connections = total_connections + @count,
+          last_seen = @timestamp
+      `);
+      const processListStmt = this.db.prepare(`
+        UPDATE process_stats SET
+          domains = CASE WHEN @value = '' THEN domains WHEN domains IS NULL OR domains = '' THEN @value WHEN LENGTH(domains) > 4000 THEN domains WHEN INSTR(',' || domains || ',', ',' || @value || ',') > 0 THEN domains ELSE domains || ',' || @value END
+        WHERE backend_id = @backendId AND process = @process AND process_path = @processPath
+      `);
+      const processIPListStmt = this.db.prepare(`
+        UPDATE process_stats SET
+          ips = CASE WHEN @value = '' THEN ips WHEN ips IS NULL OR ips = '' THEN @value WHEN LENGTH(ips) > 4000 THEN ips WHEN INSTR(',' || ips || ',', ',' || @value || ',') > 0 THEN ips ELSE ips || ',' || @value END
+        WHERE backend_id = @backendId AND process = @process AND process_path = @processPath
+      `);
+      const processRuleListStmt = this.db.prepare(`
+        UPDATE process_stats SET
+          rules = CASE WHEN @value = '' THEN rules WHEN rules IS NULL OR rules = '' THEN @value WHEN LENGTH(rules) > 4000 THEN rules WHEN INSTR(',' || rules || ',', ',' || @value || ',') > 0 THEN rules ELSE rules || ',' || @value END
+        WHERE backend_id = @backendId AND process = @process AND process_path = @processPath
+      `);
+      const processChainListStmt = this.db.prepare(`
+        UPDATE process_stats SET
+          chains = CASE WHEN @value = '' THEN chains WHEN chains IS NULL OR chains = '' THEN @value WHEN LENGTH(chains) > 4000 THEN chains WHEN INSTR(',' || chains || ',', ',' || @value || ',') > 0 THEN chains ELSE chains || ',' || @value END
+        WHERE backend_id = @backendId AND process = @process AND process_path = @processPath
+      `);
+      const minuteProcessDimStmt = this.db.prepare(`
+        INSERT INTO minute_process_dim_stats (backend_id, minute, process, process_path, domain, ip, source_ip, chain, rule, upload, download, connections)
+        VALUES (@backendId, @timeKey, @process, @processPath, @domain, @ip, @sourceIP, @chain, @rule, @upload, @download, @connections)
+        ON CONFLICT(backend_id, minute, process, process_path, domain, ip, source_ip, chain, rule) DO UPDATE SET
+          upload = upload + @upload, download = download + @download, connections = connections + @connections
+      `);
+      const hourlyProcessDimStmt = this.db.prepare(`
+        INSERT INTO hourly_process_dim_stats (backend_id, hour, process, process_path, domain, ip, source_ip, chain, rule, upload, download, connections)
+        VALUES (@backendId, @timeKey, @process, @processPath, @domain, @ip, @sourceIP, @chain, @rule, @upload, @download, @connections)
+        ON CONFLICT(backend_id, hour, process, process_path, domain, ip, source_ip, chain, rule) DO UPDATE SET
+          upload = upload + @upload, download = download + @download, connections = connections + @connections
+      `);
+      for (const [, data] of domainProcessMap) {
+        const params = { backendId, ...data, timestamp };
+        domainProcessStmt.run(params);
+        minuteDomainProcessStmt.run(params);
+      }
+      for (const [, data] of processMap) {
+        const params = {
+          backendId,
+          process: data.process,
+          processPath: data.processPath,
+          upload: data.upload,
+          download: data.download,
+          count: data.count,
+          timestamp: new Date(data.lastSeenMs).toISOString(),
+          domains: Array.from(data.domains).join(','),
+          ips: Array.from(data.ips).join(','),
+          rules: Array.from(data.rules).join(','),
+          chains: Array.from(data.chains).join(','),
+        };
+        processStmt.run(params);
+        for (const value of data.domains) processListStmt.run({ backendId, process: data.process, processPath: data.processPath, value });
+        for (const value of data.ips) processIPListStmt.run({ backendId, process: data.process, processPath: data.processPath, value });
+        for (const value of data.rules) processRuleListStmt.run({ backendId, process: data.process, processPath: data.processPath, value });
+        for (const value of data.chains) processChainListStmt.run({ backendId, process: data.process, processPath: data.processPath, value });
+      }
+      for (const [, data] of minuteProcessDimMap) {
+        minuteProcessDimStmt.run({ backendId, ...data });
+      }
+      for (const [, data] of hourlyProcessDimMap) {
+        hourlyProcessDimStmt.run({ backendId, ...data });
+      }
+    });
+    if (domainProcessMap.size > 0 || processMap.size > 0 || minuteProcessDimMap.size > 0 || hourlyProcessDimMap.size > 0) {
+      txProcess();
     }
 
     // Sub-transaction 2: Detail tables + minute/hourly tables

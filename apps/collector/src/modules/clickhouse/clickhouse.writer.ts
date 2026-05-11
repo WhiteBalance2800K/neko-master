@@ -88,6 +88,8 @@ export class ClickHouseWriter {
       domain: item.domain || '',
       ip: item.ip || '',
       source_ip: item.sourceIP || '',
+      process: item.process || '',
+      process_path: item.processPath || '',
       chain: item.chains.join(' > ') || item.chain || 'DIRECT',
       rule:
         item.chains.length > 1

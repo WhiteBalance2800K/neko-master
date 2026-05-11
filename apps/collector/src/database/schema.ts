@@ -292,6 +292,97 @@ export const SCHEMA = {
     );
   `,
 
+  // Domain×process traffic aggregation for showing which local process initiated traffic
+  DOMAIN_PROCESS_STATS: `
+    CREATE TABLE IF NOT EXISTS domain_process_stats (
+      backend_id INTEGER NOT NULL,
+      domain TEXT NOT NULL,
+      process TEXT NOT NULL,
+      process_path TEXT NOT NULL DEFAULT '',
+      total_upload INTEGER DEFAULT 0,
+      total_download INTEGER DEFAULT 0,
+      total_connections INTEGER DEFAULT 0,
+      last_seen DATETIME,
+      PRIMARY KEY (backend_id, domain, process, process_path),
+      FOREIGN KEY (backend_id) REFERENCES backend_configs(id) ON DELETE CASCADE
+    );
+  `,
+
+  // Minute-level domain×process facts so time-range domain pages show range-aware processes
+  MINUTE_DOMAIN_PROCESS_STATS: `
+    CREATE TABLE IF NOT EXISTS minute_domain_process_stats (
+      backend_id INTEGER NOT NULL,
+      minute TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      process TEXT NOT NULL,
+      process_path TEXT NOT NULL DEFAULT '',
+      upload INTEGER DEFAULT 0,
+      download INTEGER DEFAULT 0,
+      connections INTEGER DEFAULT 0,
+      PRIMARY KEY (backend_id, minute, domain, process, process_path),
+      FOREIGN KEY (backend_id) REFERENCES backend_configs(id) ON DELETE CASCADE
+    );
+  `,
+
+  // Process traffic aggregation for source analysis
+  PROCESS_STATS: `
+    CREATE TABLE IF NOT EXISTS process_stats (
+      backend_id INTEGER NOT NULL,
+      process TEXT NOT NULL,
+      process_path TEXT NOT NULL DEFAULT '',
+      total_upload INTEGER DEFAULT 0,
+      total_download INTEGER DEFAULT 0,
+      total_connections INTEGER DEFAULT 0,
+      last_seen DATETIME,
+      domains TEXT,
+      ips TEXT,
+      rules TEXT,
+      chains TEXT,
+      PRIMARY KEY (backend_id, process, process_path),
+      FOREIGN KEY (backend_id) REFERENCES backend_configs(id) ON DELETE CASCADE
+    );
+  `,
+
+  // Minute-level process fact table for range-aware source drilldowns
+  MINUTE_PROCESS_DIM_STATS: `
+    CREATE TABLE IF NOT EXISTS minute_process_dim_stats (
+      backend_id INTEGER NOT NULL,
+      minute TEXT NOT NULL,
+      process TEXT NOT NULL,
+      process_path TEXT NOT NULL DEFAULT '',
+      domain TEXT NOT NULL DEFAULT '',
+      ip TEXT NOT NULL DEFAULT '',
+      source_ip TEXT NOT NULL DEFAULT '',
+      chain TEXT NOT NULL,
+      rule TEXT NOT NULL,
+      upload INTEGER DEFAULT 0,
+      download INTEGER DEFAULT 0,
+      connections INTEGER DEFAULT 0,
+      PRIMARY KEY (backend_id, minute, process, process_path, domain, ip, source_ip, chain, rule),
+      FOREIGN KEY (backend_id) REFERENCES backend_configs(id) ON DELETE CASCADE
+    );
+  `,
+
+  // Hourly process fact table for efficient long-range source drilldowns
+  HOURLY_PROCESS_DIM_STATS: `
+    CREATE TABLE IF NOT EXISTS hourly_process_dim_stats (
+      backend_id INTEGER NOT NULL,
+      hour TEXT NOT NULL,
+      process TEXT NOT NULL,
+      process_path TEXT NOT NULL DEFAULT '',
+      domain TEXT NOT NULL DEFAULT '',
+      ip TEXT NOT NULL DEFAULT '',
+      source_ip TEXT NOT NULL DEFAULT '',
+      chain TEXT NOT NULL,
+      rule TEXT NOT NULL,
+      upload INTEGER DEFAULT 0,
+      download INTEGER DEFAULT 0,
+      connections INTEGER DEFAULT 0,
+      PRIMARY KEY (backend_id, hour, process, process_path, domain, ip, source_ip, chain, rule),
+      FOREIGN KEY (backend_id) REFERENCES backend_configs(id) ON DELETE CASCADE
+    );
+  `,
+
   // IP×proxy traffic aggregation
   IP_PROXY_STATS: `
     CREATE TABLE IF NOT EXISTS ip_proxy_stats (
@@ -452,6 +543,17 @@ export const INDEXES = [
   // Domain proxy stats index
   `CREATE INDEX IF NOT EXISTS idx_domain_proxy_chain ON domain_proxy_stats(backend_id, chain);`,
 
+  // Domain process stats indexes
+  `CREATE INDEX IF NOT EXISTS idx_domain_process_domain ON domain_process_stats(backend_id, domain);`,
+  `CREATE INDEX IF NOT EXISTS idx_minute_domain_process_domain_minute ON minute_domain_process_stats(backend_id, domain, minute);`,
+
+  // Process stats indexes
+  `CREATE INDEX IF NOT EXISTS idx_process_stats_backend_traffic ON process_stats(backend_id, total_download + total_upload);`,
+  `CREATE INDEX IF NOT EXISTS idx_minute_process_backend_minute ON minute_process_dim_stats(backend_id, minute);`,
+  `CREATE INDEX IF NOT EXISTS idx_minute_process_backend_process_minute ON minute_process_dim_stats(backend_id, process, process_path, minute);`,
+  `CREATE INDEX IF NOT EXISTS idx_hourly_process_backend_hour ON hourly_process_dim_stats(backend_id, hour);`,
+  `CREATE INDEX IF NOT EXISTS idx_hourly_process_backend_process_hour ON hourly_process_dim_stats(backend_id, process, process_path, hour);`,
+
   // IP proxy stats index
   `CREATE INDEX IF NOT EXISTS idx_ip_proxy_chain ON ip_proxy_stats(backend_id, chain);`,
 
@@ -552,6 +654,11 @@ export function getAllSchemaStatements(): string[] {
     SCHEMA.HOURLY_DIM_STATS,
     SCHEMA.HOURLY_COUNTRY_STATS,
     SCHEMA.DOMAIN_PROXY_STATS,
+    SCHEMA.DOMAIN_PROCESS_STATS,
+    SCHEMA.MINUTE_DOMAIN_PROCESS_STATS,
+    SCHEMA.PROCESS_STATS,
+    SCHEMA.MINUTE_PROCESS_DIM_STATS,
+    SCHEMA.HOURLY_PROCESS_DIM_STATS,
     SCHEMA.IP_PROXY_STATS,
     SCHEMA.RULE_CHAIN_TRAFFIC,
     SCHEMA.RULE_DOMAIN_TRAFFIC,

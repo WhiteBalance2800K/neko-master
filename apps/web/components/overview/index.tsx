@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { TopDomainsSimple } from "./top-domains-simple";
 import { TopProxiesSimple } from "./top-proxies-simple";
-import { TopCountriesSimple } from "./top-countries-simple";
 import { TrafficTrendChart } from "@/components/features/stats/charts/trend-chart";
 import { useStatsWebSocket } from "@/lib/websocket";
 import { useTrafficTrend } from "@/hooks/api/use-traffic-trend";
@@ -15,7 +14,6 @@ import type { TimePreset } from "@/lib/types/dashboard";
 import type {
   DomainStats,
   ProxyStats,
-  CountryStats,
   TrafficTrendPoint,
   StatsSummary,
 } from "@neko-master/shared";
@@ -27,7 +25,6 @@ export type GlobalTimePreset = TimePreset;
 interface OverviewTabProps {
   domains: DomainStats[];
   proxies: ProxyStats[];
-  countries: CountryStats[];
   timeRange: TimeRange;
   timePreset: TimePreset;
   activeBackendId?: number;
@@ -103,7 +100,6 @@ function getTrendDataSpanMs(points: TrafficTrendPoint[]): number {
 export function OverviewTab({
   domains,
   proxies,
-  countries,
   timeRange,
   timePreset,
   activeBackendId,
@@ -116,7 +112,6 @@ export function OverviewTab({
   const queryClient = useQueryClient();
   const [domainSort, setDomainSort] = useState<"traffic" | "connections">("traffic");
   const [proxySort, setProxySort] = useState<"traffic" | "connections">("traffic");
-  const [countrySort, setCountrySort] = useState<"traffic" | "connections">("traffic");
 
   // Traffic trend state
   const [trendGranularity, setTrendGranularity] = useState<TrendGranularity>("minute");
@@ -299,13 +294,13 @@ export function OverviewTab({
         emptyHint={backendStatus === "unhealthy" ? dashboardT("backendUnavailableHint") : undefined}
       />
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Domains */}
         <TopDomainsSimple 
           domains={domains} 
           sortBy={domainSort}
           onSortChange={setDomainSort}
-          onViewAll={() => onNavigate?.("domains")}
+          onViewAll={() => onNavigate?.("targets")}
           isLoading={isLoading}
         />
         
@@ -314,16 +309,7 @@ export function OverviewTab({
           proxies={proxies}
           sortBy={proxySort}
           onSortChange={setProxySort}
-          onViewAll={() => onNavigate?.("proxies")}
-          isLoading={isLoading}
-        />
-        
-        {/* Top Countries */}
-        <TopCountriesSimple 
-          countries={countries}
-          sortBy={countrySort}
-          onSortChange={setCountrySort}
-          onViewAll={() => onNavigate?.("countries")}
+          onViewAll={() => onNavigate?.("links")}
           isLoading={isLoading}
         />
       </div>

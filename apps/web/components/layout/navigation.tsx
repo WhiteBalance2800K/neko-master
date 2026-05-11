@@ -6,8 +6,6 @@ import Image from "next/image";
 import {
   LayoutDashboard,
   Globe,
-  MapPin,
-  Server,
   Route,
   Settings,
   Info,
@@ -47,12 +45,10 @@ const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
 
 const NAV_ITEMS = [
   { id: "overview", icon: LayoutDashboard },
-  { id: "rules", icon: Route },
-  { id: "domains", icon: Globe },
-  { id: "countries", icon: MapPin },
-  { id: "proxies", icon: Server },
-  { id: "devices", icon: Smartphone },
-  { id: "health", icon: HeartPulse },
+  { id: "links", icon: Route },
+  { id: "targets", icon: Globe },
+  { id: "sources", icon: Smartphone },
+  { id: "system", icon: HeartPulse },
 ];
 
 export function Navigation({

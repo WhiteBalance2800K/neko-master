@@ -83,6 +83,33 @@ describe('TrafficWriterRepository', () => {
       expect(domains[0].totalDownload).toBe(170);
       expect(domains[0].totalConnections).toBe(2);
     });
+
+    it('should attach process information to domain stats', () => {
+      db.updateTrafficStats(backendId, {
+        domain: 'process.example',
+        ip: '1.1.1.1',
+        chain: 'ProxyA',
+        chains: ['ProxyA'],
+        rule: 'Match',
+        rulePayload: '',
+        upload: 40,
+        download: 60,
+        process: 'Safari',
+        processPath: '/Applications/Safari.app/Contents/MacOS/Safari',
+      });
+
+      const domains = db.getDomainStats(backendId, 10);
+      expect(domains[0].processes).toEqual([
+        {
+          process: 'Safari',
+          processPath: '/Applications/Safari.app/Contents/MacOS/Safari',
+          totalUpload: 40,
+          totalDownload: 60,
+          totalConnections: 1,
+          lastSeen: expect.any(String),
+        },
+      ]);
+    });
   });
 
   describe('batchUpdateTrafficStats', () => {
@@ -246,6 +273,111 @@ describe('TrafficWriterRepository', () => {
 
       const summary = db.getSummary(backendId);
       expect(summary.totalConnections).toBe(1);
+    });
+
+    it('should aggregate domain processes for time-range domain queries', () => {
+      const now = Date.now();
+      db.batchUpdateTrafficStats(backendId, [
+        {
+          domain: 'range-process.example',
+          ip: '8.8.8.8',
+          chain: 'ProxyA',
+          chains: ['ProxyA'],
+          rule: 'Match',
+          rulePayload: '',
+          upload: 100,
+          download: 200,
+          connections: 1,
+          process: 'curl',
+          processPath: '/usr/bin/curl',
+          timestampMs: now,
+        },
+        {
+          domain: 'range-process.example',
+          ip: '8.8.8.8',
+          chain: 'ProxyA',
+          chains: ['ProxyA'],
+          rule: 'Match',
+          rulePayload: '',
+          upload: 30,
+          download: 70,
+          connections: 0,
+          process: 'curl',
+          processPath: '/usr/bin/curl',
+          timestampMs: now + 1000,
+        },
+      ]);
+
+      const result = db.getDomainStatsPaginated(backendId, {
+        start: new Date(now - 60_000).toISOString(),
+        end: new Date(now + 60_000).toISOString(),
+      });
+
+      expect(result.data[0].domain).toBe('range-process.example');
+      expect(result.data[0].processes?.[0]).toMatchObject({
+        process: 'curl',
+        processPath: '/usr/bin/curl',
+        totalUpload: 130,
+        totalDownload: 270,
+        totalConnections: 1,
+      });
+    });
+
+    it('should aggregate process-centered drilldowns', () => {
+      const now = Date.now();
+      db.batchUpdateTrafficStats(backendId, [
+        {
+          domain: 'process.example',
+          ip: '1.1.1.1',
+          chain: 'ProxyA',
+          chains: ['ProxyA', 'Match'],
+          rule: 'Match',
+          rulePayload: '',
+          upload: 120,
+          download: 280,
+          connections: 1,
+          sourceIP: '192.168.1.20',
+          process: 'curl',
+          processPath: '/usr/bin/curl',
+          timestampMs: now,
+        },
+        {
+          domain: 'api.process.example',
+          ip: '1.0.0.1',
+          chain: 'ProxyB',
+          chains: ['ProxyB', 'RuleSet'],
+          rule: 'RuleSet',
+          rulePayload: 'dev',
+          upload: 80,
+          download: 120,
+          connections: 2,
+          sourceIP: '192.168.1.20',
+          process: 'curl',
+          processPath: '/usr/bin/curl',
+          timestampMs: now + 1000,
+        },
+      ]);
+
+      const start = new Date(now - 60_000).toISOString();
+      const end = new Date(now + 60_000).toISOString();
+      const processes = db.getProcessStats(backendId, 10, start, end);
+
+      expect(processes[0]).toMatchObject({
+        process: 'curl',
+        processPath: '/usr/bin/curl',
+        totalUpload: 200,
+        totalDownload: 400,
+        totalConnections: 3,
+      });
+      expect(processes[0].domains).toEqual(expect.arrayContaining(['process.example', 'api.process.example']));
+      expect(processes[0].ips).toEqual(expect.arrayContaining(['1.1.1.1', '1.0.0.1']));
+      expect(processes[0].rules).toEqual(expect.arrayContaining(['Match', 'RuleSet']));
+      expect(processes[0].chains).toEqual(expect.arrayContaining(['ProxyA > Match', 'ProxyB > RuleSet']));
+
+      expect(db.getProcessDomains(backendId, 'curl', '/usr/bin/curl', 10, start, end)).toHaveLength(2);
+      expect(db.getProcessIPs(backendId, 'curl', '/usr/bin/curl', 10, start, end)).toHaveLength(2);
+      expect(db.getProcessRules(backendId, 'curl', '/usr/bin/curl', 10, start, end)).toHaveLength(2);
+      expect(db.getProcessProxies(backendId, 'curl', '/usr/bin/curl', 10, start, end)).toHaveLength(2);
     });
   });
 });

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { normalizeGeoIP, type Connection, type DomainStats, type IPStats, type HourlyStats, type ProxyStats, type RuleStats, type ProxyTrafficStats, type DeviceStats } from '@neko-master/shared';
+import { normalizeGeoIP, type Connection, type DomainStats, type IPStats, type HourlyStats, type ProxyStats, type RuleStats, type ProxyTrafficStats, type DeviceStats, type ProcessStats } from '@neko-master/shared';
 import { getAllSchemaStatements } from '../../database/schema.js';
 import {
   AuthRepository,
@@ -9,6 +9,7 @@ import {
   TimeseriesRepository,
   CountryRepository,
   DeviceRepository,
+  ProcessRepository,
   ProxyRepository,
   RuleRepository,
   IPRepository,
@@ -32,6 +33,8 @@ export interface TrafficUpdate {
   download: number;
   connections?: number;
   sourceIP?: string;
+  process?: string;
+  processPath?: string;
   timestampMs?: number;
 }
 
@@ -92,6 +95,7 @@ export class StatsDatabase {
     timeseries: TimeseriesRepository;
     country: CountryRepository;
     device: DeviceRepository;
+    process: ProcessRepository;
     proxy: ProxyRepository;
     rule: RuleRepository;
     ip: IPRepository;
@@ -113,6 +117,7 @@ export class StatsDatabase {
       timeseries: new TimeseriesRepository(this.db),
       country: new CountryRepository(this.db),
       device: new DeviceRepository(this.db),
+      process: new ProcessRepository(this.db),
       proxy: new ProxyRepository(this.db),
       rule: new RuleRepository(this.db),
       ip: new IPRepository(this.db),
@@ -583,6 +588,7 @@ export class StatsDatabase {
   // ==================== Traffic Writer ====================
   updateTrafficStats(backendId: number, update: TrafficUpdate) { this.repos.trafficWriter.updateTrafficStats(backendId, update); }
   batchUpdateTrafficStats(backendId: number, updates: TrafficUpdate[], reduceWrites = false) { this.repos.trafficWriter.batchUpdateTrafficStats(backendId, updates, reduceWrites); }
+  batchUpdateDomainProcessStats(backendId: number, updates: TrafficUpdate[]) { this.repos.trafficWriter.batchUpdateDomainProcessStats(backendId, updates); }
 
   // ==================== Domain ====================
   getDomainByName(backendId: number, domain: string) { return this.repos.domain.getDomainByName(backendId, domain); }
@@ -624,6 +630,14 @@ export class StatsDatabase {
       opts.end,
       () => this.repos.domain.getDomainStatsPaginated(backendId, opts),
     );
+  }
+  enrichDomainProcesses<T extends { data: DomainStats[]; total: number } | DomainStats[]>(
+    backendId: number,
+    result: T,
+    start?: string,
+    end?: string,
+  ): T {
+    return this.repos.domain.enrichDomainProcesses(backendId, result, start, end);
   }
   getDomainIPDetails(backendId: number, domain: string, start?: string, end?: string, limit?: number, sourceIP?: string, sourceChain?: string) {
     return normalizeIPStatsGeoIP(
@@ -746,6 +760,29 @@ export class StatsDatabase {
   getDeviceDomains(backendId: number, sourceIP: string, limit?: number, start?: string, end?: string) { return this.repos.device.getDeviceDomains(backendId, sourceIP, limit, start, end); }
   getDeviceIPs(backendId: number, sourceIP: string, limit?: number, start?: string, end?: string) {
     return normalizeIPStatsGeoIP(this.repos.device.getDeviceIPs(backendId, sourceIP, limit, start, end));
+  }
+
+  // ==================== Process ====================
+  getProcessStats(backendId: number, limit?: number, start?: string, end?: string): ProcessStats[] {
+    return this.withRangeQueryCache(
+      'processStats',
+      [backendId, limit || 50, start || '', end || ''],
+      start,
+      end,
+      () => this.repos.process.getProcessStats(backendId, limit, start, end),
+    );
+  }
+  getProcessDomains(backendId: number, process: string, processPath?: string, limit?: number, start?: string, end?: string) {
+    return this.repos.process.getProcessDomains(backendId, { process, processPath }, limit, start, end);
+  }
+  getProcessIPs(backendId: number, process: string, processPath?: string, limit?: number, start?: string, end?: string) {
+    return normalizeIPStatsGeoIP(this.repos.process.getProcessIPs(backendId, { process, processPath }, limit, start, end));
+  }
+  getProcessRules(backendId: number, process: string, processPath?: string, limit?: number, start?: string, end?: string) {
+    return this.repos.process.getProcessRules(backendId, { process, processPath }, limit, start, end);
+  }
+  getProcessProxies(backendId: number, process: string, processPath?: string, limit?: number, start?: string, end?: string) {
+    return this.repos.process.getProcessProxies(backendId, { process, processPath }, limit, start, end);
   }
 
   // ==================== Proxy ====================

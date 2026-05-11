@@ -57,6 +57,56 @@ export interface DomainStats {
   lastSeen: string;
   rules: string[];
   chains: string[];
+  processes?: ProcessStats[];
+}
+
+export interface ProcessStats {
+  process: string;
+  processPath?: string;
+  totalUpload: number;
+  totalDownload: number;
+  totalConnections: number;
+  lastSeen: string;
+  domains?: string[];
+  ips?: string[];
+  rules?: string[];
+  chains?: string[];
+}
+
+export interface ProcessDetailStats {
+  process: string;
+  processPath?: string;
+  domains: DomainStats[];
+  ips: IPStats[];
+  rules: RuleStats[];
+  proxies: ProxyStats[];
+}
+
+export interface LiveConnection {
+  id: string;
+  domain?: string;
+  ip?: string;
+  sourceIP?: string;
+  network?: string;
+  type?: string;
+  sourcePort?: string | number;
+  destinationPort?: string | number;
+  inboundName?: string;
+  dnsMode?: string;
+  sniffHost?: string;
+  remoteDestination?: string;
+  process?: string;
+  processPath?: string;
+  rule?: string;
+  rulePayload?: string;
+  chains: string[];
+  upload: number;
+  download: number;
+  uploadSpeed?: number;
+  downloadSpeed?: number;
+  start?: string;
+  status?: string;
+  method?: string;
 }
 
 export interface IPStats {
@@ -178,6 +228,7 @@ export interface StatsSummary {
   proxyStats: ProxyStats[];
   countryStats?: CountryStats[];
   deviceStats?: DeviceStats[];
+  processStats?: ProcessStats[];
   deviceDetailSourceIP?: string;
   deviceDomains?: DomainStats[];
   deviceIPs?: IPStats[];

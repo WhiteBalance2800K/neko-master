@@ -118,7 +118,7 @@ export function DomainTopList({ data, limit = 7, onViewAll }: DomainTopListProps
                 <img
                   src={getFaviconForDomain(domain.domain)}
                   alt=""
-                  className="w-5 h-5"
+                  className="w-full h-full object-cover scale-[1.08]"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = "none";
