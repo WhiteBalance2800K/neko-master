@@ -3,13 +3,53 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 export type FaviconProvider = "google" | "faviconim" | "off";
+export type RadixColorName =
+  | "blue"
+  | "indigo"
+  | "violet"
+  | "purple"
+  | "cyan"
+  | "teal"
+  | "green"
+  | "amber"
+  | "orange"
+  | "red"
+  | "pink"
+  | "slate";
+
+export interface RadixColorOption {
+  name: RadixColorName;
+  label: string;
+  value: string;
+}
+
+export const RADIX_COLOR_OPTIONS: RadixColorOption[] = [
+  { name: "blue", label: "Blue", value: "#0090ff" },
+  { name: "indigo", label: "Indigo", value: "#3e63dd" },
+  { name: "violet", label: "Violet", value: "#6e56cf" },
+  { name: "purple", label: "Purple", value: "#8e4ec6" },
+  { name: "cyan", label: "Cyan", value: "#00a2c7" },
+  { name: "teal", label: "Teal", value: "#12a594" },
+  { name: "green", label: "Green", value: "#30a46c" },
+  { name: "amber", label: "Amber", value: "#ffb224" },
+  { name: "orange", label: "Orange", value: "#f76808" },
+  { name: "red", label: "Red", value: "#e5484d" },
+  { name: "pink", label: "Pink", value: "#d6409f" },
+  { name: "slate", label: "Slate", value: "#8b8d98" },
+];
 
 export interface UserSettings {
   faviconProvider: FaviconProvider;
+  backgroundColor: RadixColorName;
+  uploadColor: RadixColorName;
+  downloadColor: RadixColorName;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
   faviconProvider: "faviconim",
+  backgroundColor: "blue",
+  uploadColor: "violet",
+  downloadColor: "blue",
 };
 
 const STORAGE_KEY = "neko-master-settings";
@@ -28,9 +68,31 @@ function initCache() {
       const parsed = JSON.parse(stored);
       cachedSettings = { ...DEFAULT_SETTINGS, ...parsed };
     }
+    applyAppearanceSettings(cachedSettings);
   } catch {
     // Ignore parse errors
   }
+}
+
+function resolveColor(name: RadixColorName | undefined): string {
+  return (
+    RADIX_COLOR_OPTIONS.find((color) => color.name === name)?.value ||
+    RADIX_COLOR_OPTIONS[0].value
+  );
+}
+
+export function applyAppearanceSettings(settings: UserSettings): void {
+  if (typeof document === "undefined") return;
+
+  const root = document.documentElement;
+  const background = resolveColor(settings.backgroundColor);
+  const upload = resolveColor(settings.uploadColor);
+  const download = resolveColor(settings.downloadColor);
+
+  root.style.setProperty("--user-bg-accent", background);
+  root.style.setProperty("--traffic-upload", upload);
+  root.style.setProperty("--traffic-download", download);
+  root.style.setProperty("--traffic-total", resolveColor("pink"));
 }
 
 // Get settings from cache (sync, returns same reference if unchanged)
@@ -75,6 +137,7 @@ export function saveSettings(settings: Partial<UserSettings>): void {
     const current = getSettings();
     const updated = { ...current, ...settings };
     cachedSettings = updated; // Update cache immediately
+    applyAppearanceSettings(updated);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     
     // Dispatch event to notify components
@@ -93,6 +156,7 @@ function subscribe(callback: () => void) {
       if (stored) {
         const parsed = JSON.parse(stored);
         cachedSettings = { ...DEFAULT_SETTINGS, ...parsed };
+        applyAppearanceSettings(cachedSettings);
       }
     } catch {
       // Ignore parse errors

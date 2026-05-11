@@ -124,4 +124,59 @@ describe("GeoIP config API", () => {
     expect(payload.config.effectiveProvider).toBe("local");
     expect(payload.config.localMmdbReady).toBe(true);
   });
+
+  it("persists Bark notification thresholds and hides internal marker fields", async () => {
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/db/notifications/bark",
+      payload: {
+        enabled: true,
+        serverUrl: "https://api.day.app/test-key",
+        totalThresholdBytes: 10,
+        uploadThresholdBytes: 20,
+        downloadThresholdBytes: 30,
+        cooldownMinutes: 60,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as {
+      config: {
+        enabled: boolean;
+        serverUrl: string;
+        totalThresholdBytes: number;
+        uploadThresholdBytes: number;
+        downloadThresholdBytes: number;
+        cooldownMinutes: number;
+        lastTotalThresholdBytes?: number;
+      };
+    };
+    expect(payload.config.enabled).toBe(true);
+    expect(payload.config.serverUrl).toBe("https://api.day.app/test-key");
+    expect(payload.config.totalThresholdBytes).toBe(10);
+    expect(payload.config.uploadThresholdBytes).toBe(20);
+    expect(payload.config.downloadThresholdBytes).toBe(30);
+    expect(payload.config.cooldownMinutes).toBe(60);
+    expect(payload.config.lastTotalThresholdBytes).toBeUndefined();
+
+    const getResponse = await app.inject({
+      method: "GET",
+      url: "/api/db/notifications/bark",
+    });
+    expect(getResponse.statusCode).toBe(200);
+    expect(getResponse.json().enabled).toBe(true);
+  });
+
+  it("rejects invalid Bark notification URL", async () => {
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/db/notifications/bark",
+      payload: {
+        serverUrl: "ftp://example.com/key",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain("serverUrl");
+  });
 });

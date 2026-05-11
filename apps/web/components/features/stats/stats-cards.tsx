@@ -163,9 +163,9 @@ export function StatsCards({ data, backendStatus, isLoading }: StatsCardsProps) 
   if (isLoading) {
     return (
       <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-          <PlaceholderStatCard icon={Download} label={t("totalDownload")} color="#3B82F6" shimmer />
-          <PlaceholderStatCard icon={Upload} label={t("totalUpload")} color="#8B5CF6" shimmer />
-          <PlaceholderStatCard icon={Server} label={t("total")} color="#EC4899" shimmer />
+          <PlaceholderStatCard icon={Download} label={t("totalDownload")} color="var(--traffic-download)" shimmer />
+          <PlaceholderStatCard icon={Upload} label={t("totalUpload")} color="var(--traffic-upload)" shimmer />
+          <PlaceholderStatCard icon={Server} label={t("total")} color="var(--traffic-total)" shimmer />
           <PlaceholderStatCard icon={Activity} label={t("totalConnections")} color="#10B981" shimmer />
           <PlaceholderStatCard icon={Globe} label={t("domains")} color="#06B6D4" shimmer />
           <PlaceholderStatCard icon={Route} label={t("rules")} color="#F59E0B" shimmer />
@@ -177,9 +177,9 @@ export function StatsCards({ data, backendStatus, isLoading }: StatsCardsProps) 
     <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
       {showUnavailablePlaceholder ? (
         <>
-          <PlaceholderStatCard icon={Download} label={t("totalDownload")} color="#3B82F6" />
-          <PlaceholderStatCard icon={Upload} label={t("totalUpload")} color="#8B5CF6" />
-          <PlaceholderStatCard icon={Server} label={t("total")} color="#EC4899" />
+          <PlaceholderStatCard icon={Download} label={t("totalDownload")} color="var(--traffic-download)" />
+          <PlaceholderStatCard icon={Upload} label={t("totalUpload")} color="var(--traffic-upload)" />
+          <PlaceholderStatCard icon={Server} label={t("total")} color="var(--traffic-total)" />
           <PlaceholderStatCard icon={Activity} label={t("totalConnections")} color="#10B981" />
           <PlaceholderStatCard icon={Globe} label={t("domains")} color="#06B6D4" />
           <PlaceholderStatCard icon={Route} label={t("rules")} color="#F59E0B" />
@@ -191,21 +191,21 @@ export function StatsCards({ data, backendStatus, isLoading }: StatsCardsProps) 
             formatter={formatBytes}
             icon={Download}
             label={t("totalDownload")}
-            color="#3B82F6"
+            color="var(--traffic-download)"
           />
           <AnimatedStatCard
             value={data?.totalUpload || 0}
             formatter={formatBytes}
             icon={Upload}
             label={t("totalUpload")}
-            color="#8B5CF6"
+            color="var(--traffic-upload)"
           />
           <AnimatedStatCard
             value={(data?.totalDownload || 0) + (data?.totalUpload || 0)}
             formatter={formatBytes}
             label={t("total")}
             icon={Server}
-            color="#EC4899"
+            color="var(--traffic-total)"
           />
           <AnimatedStatCard
             value={data?.totalConnections || 0}

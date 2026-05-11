@@ -40,12 +40,12 @@ export function TrafficChart({ data }: TrafficChartProps) {
         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="colorDownload" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--traffic-download)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--traffic-download)" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="colorUpload" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--traffic-upload)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="var(--traffic-upload)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid 
@@ -87,7 +87,7 @@ export function TrafficChart({ data }: TrafficChartProps) {
             type="monotone"
             dataKey="download"
             name="download"
-            stroke="#3B82F6"
+            stroke="var(--traffic-download)"
             strokeWidth={2}
             fillOpacity={1}
             fill="url(#colorDownload)"
@@ -97,7 +97,7 @@ export function TrafficChart({ data }: TrafficChartProps) {
             type="monotone"
             dataKey="upload"
             name="upload"
-            stroke="#8B5CF6"
+            stroke="var(--traffic-upload)"
             strokeWidth={2}
             fillOpacity={1}
             fill="url(#colorUpload)"

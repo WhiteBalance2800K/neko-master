@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
+import { applyAppearanceSettings, useSettings } from "@/lib/settings";
 
 const THEME_COLORS = {
   light: "#F5F7FA",
@@ -10,6 +11,11 @@ const THEME_COLORS = {
 
 function ThemeColorSync() {
   const { resolvedTheme } = useTheme();
+  const { settings } = useSettings();
+
+  React.useEffect(() => {
+    applyAppearanceSettings(settings);
+  }, [settings]);
 
   React.useEffect(() => {
     const color = resolvedTheme === "dark" ? THEME_COLORS.dark : THEME_COLORS.light;

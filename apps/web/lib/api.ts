@@ -209,6 +209,18 @@ export interface GeoLookupConfig {
   missingMmdbFiles: string[];
 }
 
+export interface BarkNotificationConfig {
+  enabled: boolean;
+  serverUrl: string;
+  totalThresholdBytes: number;
+  uploadThresholdBytes: number;
+  downloadThresholdBytes: number;
+  cooldownMinutes: number;
+  lastTotalNotifiedAt?: string;
+  lastUploadNotifiedAt?: string;
+  lastDownloadNotifiedAt?: string;
+}
+
 const DEFAULT_DB_STATS = {
   size: 0,
   sqliteSize: 0,
@@ -230,6 +242,15 @@ const DEFAULT_GEO_LOOKUP_CONFIG: GeoLookupConfig = {
   onlineApiUrl: "https://api.ipinfo.es/ipinfo",
   localMmdbReady: false,
   missingMmdbFiles: [],
+};
+
+const DEFAULT_BARK_NOTIFICATION_CONFIG: BarkNotificationConfig = {
+  enabled: false,
+  serverUrl: "",
+  totalThresholdBytes: 0,
+  uploadThresholdBytes: 0,
+  downloadThresholdBytes: 0,
+  cooldownMinutes: 1440,
 };
 
 function buildUrl(base: string, params: Record<string, string | number | undefined>): string {
@@ -695,6 +716,27 @@ export const api = {
     config: { provider?: GeoLookupProvider; onlineApiUrl?: string },
   ) =>
     fetchJson<{ message: string; config: GeoLookupConfig }>(`${API_BASE}/db/geoip`, 'PUT', config),
+
+  getBarkNotificationConfig: async () => {
+    try {
+      return await fetchJson<BarkNotificationConfig>(`${API_BASE}/db/notifications/bark`);
+    } catch (error) {
+      if (isApiStatus(error, 404)) {
+        return { ...DEFAULT_BARK_NOTIFICATION_CONFIG };
+      }
+      throw error;
+    }
+  },
+
+  updateBarkNotificationConfig: (config: Partial<BarkNotificationConfig>) =>
+    fetchJson<{ message: string; config: BarkNotificationConfig }>(
+      `${API_BASE}/db/notifications/bark`,
+      'PUT',
+      config,
+    ),
+
+  testBarkNotification: () =>
+    fetchJson<{ message: string }>(`${API_BASE}/db/notifications/bark/test`, 'POST'),
 
   // Auth management
   getAuthState: () =>

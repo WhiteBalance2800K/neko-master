@@ -28,6 +28,9 @@ import {
   Key,
   Copy,
   Terminal,
+  Bell,
+  Palette,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,12 +61,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn, formatBytes, formatNumber } from "@/lib/utils";
-import { api, type GeoLookupConfig, type GeoLookupProvider } from "@/lib/api";
+import { api, type BarkNotificationConfig, type GeoLookupConfig, type GeoLookupProvider } from "@/lib/api";
 import { isAgentBackendUrl } from "@neko-master/shared";
 import { toast } from "sonner";
 import { BackendVerifyAnimation } from "@/components/features/backend/backend-verify-animation";
 import { BackendListSkeleton } from "@/components/ui/insight-skeleton";
-import { useSettings, FaviconProvider, getFaviconUrl } from "@/lib/settings";
+import {
+  useSettings,
+  FaviconProvider,
+  getFaviconUrl,
+  RADIX_COLOR_OPTIONS,
+  type RadixColorName,
+} from "@/lib/settings";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuthState, authKeys } from "@/lib/auth-queries";
@@ -244,6 +253,45 @@ function FaviconProviderPreview({
   );
 }
 
+function ColorSwatchPicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: RadixColorName;
+  onChange: (value: RadixColorName) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label className="text-sm font-medium">{label}</Label>
+        <span className="text-xs text-muted-foreground">
+          {RADIX_COLOR_OPTIONS.find((color) => color.name === value)?.label}
+        </span>
+      </div>
+      <div className="grid grid-cols-6 sm:grid-cols-12 gap-2">
+        {RADIX_COLOR_OPTIONS.map((color) => (
+          <button
+            key={color.name}
+            type="button"
+            onClick={() => onChange(color.name)}
+            className={cn(
+              "h-8 rounded-md border transition-all active:scale-95",
+              value === color.name
+                ? "border-foreground ring-2 ring-primary/35 ring-offset-2 ring-offset-background"
+                : "border-border/60 hover:border-foreground/40",
+            )}
+            style={{ backgroundColor: color.value }}
+            title={color.label}
+            aria-label={color.label}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface BackendHealth {
   status: 'healthy' | 'unhealthy' | 'unknown';
   lastChecked: number;
@@ -310,6 +358,26 @@ interface RetentionConfig {
   connectionLogsDays: number;
   hourlyStatsDays: number;
   autoCleanup: boolean;
+}
+
+const DEFAULT_BARK_CONFIG: BarkNotificationConfig = {
+  enabled: false,
+  serverUrl: "",
+  totalThresholdBytes: 0,
+  uploadThresholdBytes: 0,
+  downloadThresholdBytes: 0,
+  cooldownMinutes: 1440,
+};
+
+function bytesToGb(bytes: number): string {
+  if (!bytes) return "";
+  return String(Number((bytes / 1024 / 1024 / 1024).toFixed(2)));
+}
+
+function gbInputToBytes(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.round(parsed * 1024 * 1024 * 1024);
 }
 
 type BackendMode = "direct" | "agent";
@@ -679,6 +747,16 @@ export function BackendConfigDialog({
     missingMmdbFiles: [],
   });
   const [updatingGeoLookup, setUpdatingGeoLookup] = useState(false);
+  const [barkConfig, setBarkConfig] = useState<BarkNotificationConfig>(DEFAULT_BARK_CONFIG);
+  const [barkForm, setBarkForm] = useState({
+    serverUrl: "",
+    totalThresholdGb: "",
+    uploadThresholdGb: "",
+    downloadThresholdGb: "",
+    cooldownMinutes: "1440",
+  });
+  const [updatingBark, setUpdatingBark] = useState(false);
+  const [testingBark, setTestingBark] = useState(false);
 
   // Alert Dialog States
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -757,6 +835,7 @@ export function BackendConfigDialog({
       loadDbStats();
       loadRetentionConfig();
       loadGeoLookupConfig();
+      loadBarkNotificationConfig();
     }
   }, [open]);
 
@@ -831,6 +910,63 @@ export function BackendConfigDialog({
       setGeoLookupConfig(config);
     } catch (error) {
       console.error("Failed to load geo lookup config:", error);
+    }
+  };
+
+  const syncBarkForm = (config: BarkNotificationConfig) => {
+    setBarkForm({
+      serverUrl: config.serverUrl || "",
+      totalThresholdGb: bytesToGb(config.totalThresholdBytes),
+      uploadThresholdGb: bytesToGb(config.uploadThresholdBytes),
+      downloadThresholdGb: bytesToGb(config.downloadThresholdBytes),
+      cooldownMinutes: String(config.cooldownMinutes || 1440),
+    });
+  };
+
+  const loadBarkNotificationConfig = async () => {
+    try {
+      const config = await api.getBarkNotificationConfig();
+      setBarkConfig(config);
+      syncBarkForm(config);
+    } catch (error) {
+      console.error("Failed to load Bark notification config:", error);
+    }
+  };
+
+  const saveBarkNotificationConfig = async (enabled = barkConfig.enabled): Promise<boolean> => {
+    try {
+      setUpdatingBark(true);
+      const result = await api.updateBarkNotificationConfig({
+        enabled,
+        serverUrl: barkForm.serverUrl.trim(),
+        totalThresholdBytes: gbInputToBytes(barkForm.totalThresholdGb),
+        uploadThresholdBytes: gbInputToBytes(barkForm.uploadThresholdGb),
+        downloadThresholdBytes: gbInputToBytes(barkForm.downloadThresholdGb),
+        cooldownMinutes: Math.max(1, Number.parseInt(barkForm.cooldownMinutes || "1440", 10) || 1440),
+      });
+      setBarkConfig(result.config);
+      syncBarkForm(result.config);
+      toast.success(t("barkSaved"));
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || t("barkSaveFailed"));
+      return false;
+    } finally {
+      setUpdatingBark(false);
+    }
+  };
+
+  const testBarkNotification = async () => {
+    try {
+      setTestingBark(true);
+      const saved = await saveBarkNotificationConfig(barkConfig.enabled);
+      if (!saved) return;
+      await api.testBarkNotification();
+      toast.success(t("barkTestSent"));
+    } catch (error: any) {
+      toast.error(error.message || t("barkTestFailed"));
+    } finally {
+      setTestingBark(false);
     }
   };
 
@@ -2124,6 +2260,155 @@ export function BackendConfigDialog({
                     }
                     t={t}
                   />
+                </div>
+
+                {/* Appearance Colors */}
+                <div className="p-4 rounded-lg border bg-card space-y-5">
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <Palette className="w-4 h-4" />
+                      {t("appearanceColors")}
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {t("appearanceColorsDescription")}
+                    </p>
+                  </div>
+
+                  <ColorSwatchPicker
+                    label={t("backgroundColor")}
+                    value={settings.backgroundColor}
+                    onChange={(value) => setSettings({ backgroundColor: value })}
+                  />
+                  <ColorSwatchPicker
+                    label={t("downloadColor")}
+                    value={settings.downloadColor}
+                    onChange={(value) => setSettings({ downloadColor: value })}
+                  />
+                  <ColorSwatchPicker
+                    label={t("uploadColor")}
+                    value={settings.uploadColor}
+                    onChange={(value) => setSettings({ uploadColor: value })}
+                  />
+                </div>
+
+                {/* Bark Notifications */}
+                <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Bell className="w-4 h-4" />
+                        {t("barkNotifications")}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        {t("barkNotificationsDescription")}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={barkConfig.enabled}
+                      disabled={updatingBark || isShowcase}
+                      onCheckedChange={(checked) => saveBarkNotificationConfig(checked)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bark-url">{t("barkServerUrl")}</Label>
+                    <Input
+                      id="bark-url"
+                      value={barkForm.serverUrl}
+                      onChange={(e) =>
+                        setBarkForm((prev) => ({ ...prev, serverUrl: e.target.value }))
+                      }
+                      disabled={isShowcase}
+                      placeholder="https://api.day.app/your-key"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("barkServerUrlHint")}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="bark-total">{t("barkTotalThreshold")}</Label>
+                      <Input
+                        id="bark-total"
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={barkForm.totalThresholdGb}
+                        onChange={(e) =>
+                          setBarkForm((prev) => ({ ...prev, totalThresholdGb: e.target.value }))
+                        }
+                        disabled={isShowcase}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bark-download">{t("barkDownloadThreshold")}</Label>
+                      <Input
+                        id="bark-download"
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={barkForm.downloadThresholdGb}
+                        onChange={(e) =>
+                          setBarkForm((prev) => ({ ...prev, downloadThresholdGb: e.target.value }))
+                        }
+                        disabled={isShowcase}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bark-upload">{t("barkUploadThreshold")}</Label>
+                      <Input
+                        id="bark-upload"
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={barkForm.uploadThresholdGb}
+                        onChange={(e) =>
+                          setBarkForm((prev) => ({ ...prev, uploadThresholdGb: e.target.value }))
+                        }
+                        disabled={isShowcase}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("barkThresholdHint")}
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                    <div className="space-y-2 sm:w-40">
+                      <Label htmlFor="bark-cooldown">{t("barkCooldown")}</Label>
+                      <Input
+                        id="bark-cooldown"
+                        type="number"
+                        min="1"
+                        max="10080"
+                        value={barkForm.cooldownMinutes}
+                        onChange={(e) =>
+                          setBarkForm((prev) => ({ ...prev, cooldownMinutes: e.target.value }))
+                        }
+                        disabled={isShowcase}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => saveBarkNotificationConfig()}
+                        disabled={updatingBark || isShowcase}>
+                        {t("saveBark")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={testBarkNotification}
+                        disabled={testingBark || updatingBark || isShowcase}>
+                        <Send className="w-3.5 h-3.5 mr-1.5" />
+                        {t("testBark")}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* GeoIP Lookup Provider */}

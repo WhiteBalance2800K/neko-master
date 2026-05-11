@@ -14,6 +14,7 @@ import {
   RuleRepository,
   IPRepository,
   ConfigRepository,
+  type BarkNotificationConfig,
   type GeoLookupConfig,
   type GeoLookupProvider,
   TrafficWriterRepository,
@@ -1038,6 +1039,22 @@ export class StatsDatabase {
   updateGeoLookupConfig(updates: { provider?: GeoLookupProvider; onlineApiUrl?: string }): GeoLookupConfig {
     return this.repos.config.updateGeoLookupConfig(updates);
   }
+  getBarkNotificationConfig(): BarkNotificationConfig {
+    return this.repos.config.getBarkNotificationConfig();
+  }
+  updateBarkNotificationConfig(updates: {
+    enabled?: boolean;
+    serverUrl?: string;
+    totalThresholdBytes?: number;
+    uploadThresholdBytes?: number;
+    downloadThresholdBytes?: number;
+    cooldownMinutes?: number;
+  }): BarkNotificationConfig {
+    return this.repos.config.updateBarkNotificationConfig(updates);
+  }
+  markBarkNotificationSent(metric: 'total' | 'upload' | 'download', thresholdBytes: number, notifiedAt?: string): void {
+    this.repos.config.markBarkNotificationSent(metric, thresholdBytes, notifiedAt);
+  }
   vacuum() { this.repos.config.vacuum(); }
   deleteOldMinuteStats(cutoff: string) { return this.repos.config.deleteOldMinuteStats(cutoff); }
   deleteOldConnectionLogs(cutoff: string) { return this.repos.config.deleteOldConnectionLogs(cutoff); }
@@ -1210,6 +1227,6 @@ export class StatsDatabase {
   }
 }
 
-export type { GeoLookupConfig, GeoLookupProvider };
+export type { BarkNotificationConfig, GeoLookupConfig, GeoLookupProvider };
 
 export default StatsDatabase;

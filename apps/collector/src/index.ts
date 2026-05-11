@@ -32,6 +32,7 @@ import {
 } from './modules/clickhouse/clickhouse.config.js';
 import { ClickHouseCompareService } from './modules/clickhouse/clickhouse.compare.js';
 import { CleanupService, type CleanupOverrides } from './modules/cleanup/index.js';
+import { BarkNotificationService } from './modules/notification/bark-notification.service.js';
 
 const COLLECTOR_WS_PORT = parseInt(process.env.COLLECTOR_WS_PORT || '3002');
 const API_PORT = parseInt(process.env.API_PORT || '3001');
@@ -69,6 +70,7 @@ let geoService: GeoIPService;
 let policySyncService: SurgePolicySyncService;
 let clickHouseCompareService: ClickHouseCompareService;
 let cleanupService: CleanupService | undefined;
+let barkNotificationService: BarkNotificationService | undefined;
 
 // Track last known backend configs to detect changes
 let lastBackendConfigs: Map<number, BackendConfig> = new Map();
@@ -137,6 +139,9 @@ async function main() {
   // the DB-stored config for operators who prefer set-and-forget Docker deploys.
   cleanupService = new CleanupService(db, loadCleanupOverridesFromEnv());
   cleanupService.start();
+
+  barkNotificationService = new BarkNotificationService(db);
+  barkNotificationService.start();
 
   // Handle graceful shutdown
   process.on('SIGINT', shutdown);
@@ -302,6 +307,7 @@ function shutdown() {
 
   // Stop retention cleanup
   cleanupService?.stop();
+  barkNotificationService?.stop();
 
   // Close database
   db?.close();

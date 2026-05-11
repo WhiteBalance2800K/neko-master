@@ -30,6 +30,8 @@ const nextConfig: NextConfig = {
     // At runtime (e.g. Docker), use WS_EXTERNAL_PORT env var instead — it is written
     // into runtime-config.js by docker-start.sh and read via window.__RUNTIME_CONFIG__.
     NEXT_PUBLIC_WS_PORT: process.env.NEXT_PUBLIC_WS_PORT || "3002",
+    NEXT_PUBLIC_GITHUB_REPO:
+      process.env.NEXT_PUBLIC_GITHUB_REPO || "WhiteBalance2800K/neko-master",
   },
   // Turbopack configuration (formerly experimental.turbopack)
   turbopack: {

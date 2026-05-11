@@ -25,6 +25,21 @@ export interface GeoLookupConfig {
   missingMmdbFiles: string[];
 }
 
+export interface BarkNotificationConfig {
+  enabled: boolean;
+  serverUrl: string;
+  totalThresholdBytes: number;
+  uploadThresholdBytes: number;
+  downloadThresholdBytes: number;
+  cooldownMinutes: number;
+  lastTotalNotifiedAt?: string;
+  lastUploadNotifiedAt?: string;
+  lastDownloadNotifiedAt?: string;
+  lastTotalThresholdBytes: number;
+  lastUploadThresholdBytes: number;
+  lastDownloadThresholdBytes: number;
+}
+
 export class ConfigRepository extends BaseRepository {
   private dbPath: string;
   private mmdbStatusCache:
@@ -197,6 +212,75 @@ export class ConfigRepository extends BaseRepository {
     }
 
     return this.getGeoLookupConfig();
+  }
+
+  private getConfigValue(key: string): string | undefined {
+    return (this.db.prepare(`SELECT value FROM app_config WHERE key = ?`).get(key) as { value: string } | undefined)?.value;
+  }
+
+  private setConfigValue(key: string, value: string): void {
+    this.db.prepare(`
+      INSERT INTO app_config (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    `).run(key, value);
+  }
+
+  private getConfigNumber(key: string, fallback: number): number {
+    const parsed = Number(this.getConfigValue(key));
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+  }
+
+  getBarkNotificationConfig(): BarkNotificationConfig {
+    return {
+      enabled: this.getConfigValue('notification.bark.enabled') === '1',
+      serverUrl: this.getConfigValue('notification.bark.server_url') || '',
+      totalThresholdBytes: this.getConfigNumber('notification.bark.total_threshold_bytes', 0),
+      uploadThresholdBytes: this.getConfigNumber('notification.bark.upload_threshold_bytes', 0),
+      downloadThresholdBytes: this.getConfigNumber('notification.bark.download_threshold_bytes', 0),
+      cooldownMinutes: this.getConfigNumber('notification.bark.cooldown_minutes', 1440),
+      lastTotalNotifiedAt: this.getConfigValue('notification.bark.last_total_notified_at'),
+      lastUploadNotifiedAt: this.getConfigValue('notification.bark.last_upload_notified_at'),
+      lastDownloadNotifiedAt: this.getConfigValue('notification.bark.last_download_notified_at'),
+      lastTotalThresholdBytes: this.getConfigNumber('notification.bark.last_total_threshold_bytes', 0),
+      lastUploadThresholdBytes: this.getConfigNumber('notification.bark.last_upload_threshold_bytes', 0),
+      lastDownloadThresholdBytes: this.getConfigNumber('notification.bark.last_download_threshold_bytes', 0),
+    };
+  }
+
+  updateBarkNotificationConfig(updates: {
+    enabled?: boolean;
+    serverUrl?: string;
+    totalThresholdBytes?: number;
+    uploadThresholdBytes?: number;
+    downloadThresholdBytes?: number;
+    cooldownMinutes?: number;
+  }): BarkNotificationConfig {
+    if (updates.enabled !== undefined) {
+      this.setConfigValue('notification.bark.enabled', updates.enabled ? '1' : '0');
+    }
+    if (updates.serverUrl !== undefined) {
+      this.setConfigValue('notification.bark.server_url', updates.serverUrl);
+    }
+    if (updates.totalThresholdBytes !== undefined) {
+      this.setConfigValue('notification.bark.total_threshold_bytes', String(Math.max(0, Math.floor(updates.totalThresholdBytes))));
+    }
+    if (updates.uploadThresholdBytes !== undefined) {
+      this.setConfigValue('notification.bark.upload_threshold_bytes', String(Math.max(0, Math.floor(updates.uploadThresholdBytes))));
+    }
+    if (updates.downloadThresholdBytes !== undefined) {
+      this.setConfigValue('notification.bark.download_threshold_bytes', String(Math.max(0, Math.floor(updates.downloadThresholdBytes))));
+    }
+    if (updates.cooldownMinutes !== undefined) {
+      this.setConfigValue('notification.bark.cooldown_minutes', String(Math.max(1, Math.floor(updates.cooldownMinutes))));
+    }
+
+    return this.getBarkNotificationConfig();
+  }
+
+  markBarkNotificationSent(metric: 'total' | 'upload' | 'download', thresholdBytes: number, notifiedAt = new Date().toISOString()): void {
+    const prefix = `notification.bark.last_${metric}`;
+    this.setConfigValue(`${prefix}_notified_at`, notifiedAt);
+    this.setConfigValue(`${prefix}_threshold_bytes`, String(Math.max(0, Math.floor(thresholdBytes))));
   }
 
   // Data cleanup

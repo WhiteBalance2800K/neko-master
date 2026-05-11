@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type { StatsDatabase, GeoLookupConfig, GeoLookupProvider } from "../db/db.js";
 import type { RealtimeStore } from "../realtime/realtime.store.js";
 import { loadClickHouseConfig, runClickHouseQuery, runClickHouseTextQuery } from "../clickhouse/clickhouse.config.js";
+import { BarkNotificationService } from "../notification/bark-notification.service.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -19,6 +20,23 @@ function isValidHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function sanitizeNonNegativeBytes(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  return Math.floor(parsed);
+}
+
+function toPublicBarkConfig(config: ReturnType<StatsDatabase["getBarkNotificationConfig"]>) {
+  const {
+    lastTotalThresholdBytes: _lastTotalThresholdBytes,
+    lastUploadThresholdBytes: _lastUploadThresholdBytes,
+    lastDownloadThresholdBytes: _lastDownloadThresholdBytes,
+    ...publicConfig
+  } = config;
+  return publicConfig;
 }
 
 function toGeoLookupResponse(config: GeoLookupConfig) {
@@ -323,6 +341,76 @@ const configController: FastifyPluginAsync = async (fastify: FastifyInstance): P
       message: "GeoIP configuration updated",
       config: toGeoLookupResponse(config),
     };
+  });
+
+  fastify.get("/notifications/bark", async () => {
+    return toPublicBarkConfig(fastify.db.getBarkNotificationConfig());
+  });
+
+  fastify.put("/notifications/bark", async (request, reply) => {
+    if (fastify.authService.isShowcaseMode()) {
+      return reply.status(403).send({ error: "Forbidden" });
+    }
+
+    const body = request.body as {
+      enabled?: boolean;
+      serverUrl?: string;
+      totalThresholdBytes?: number;
+      uploadThresholdBytes?: number;
+      downloadThresholdBytes?: number;
+      cooldownMinutes?: number;
+    };
+
+    const updates: Parameters<StatsDatabase["updateBarkNotificationConfig"]>[0] = {};
+
+    if (body.enabled !== undefined) {
+      updates.enabled = Boolean(body.enabled);
+    }
+    if (body.serverUrl !== undefined) {
+      const serverUrl = String(body.serverUrl).trim();
+      if (serverUrl && !isValidHttpUrl(serverUrl)) {
+        return reply.status(400).send({ error: "serverUrl must be a valid http/https URL" });
+      }
+      updates.serverUrl = serverUrl;
+    }
+
+    for (const key of ["totalThresholdBytes", "uploadThresholdBytes", "downloadThresholdBytes"] as const) {
+      const value = sanitizeNonNegativeBytes(body[key]);
+      if (body[key] !== undefined && value === undefined) {
+        return reply.status(400).send({ error: `${key} must be a non-negative number` });
+      }
+      if (value !== undefined) {
+        updates[key] = value;
+      }
+    }
+
+    if (body.cooldownMinutes !== undefined) {
+      const cooldownMinutes = Number(body.cooldownMinutes);
+      if (!Number.isFinite(cooldownMinutes) || cooldownMinutes < 1 || cooldownMinutes > 10080) {
+        return reply.status(400).send({ error: "cooldownMinutes must be between 1 and 10080" });
+      }
+      updates.cooldownMinutes = Math.floor(cooldownMinutes);
+    }
+
+    const config = fastify.db.updateBarkNotificationConfig(updates);
+    return {
+      message: "Bark notification configuration updated",
+      config: toPublicBarkConfig(config),
+    };
+  });
+
+  fastify.post("/notifications/bark/test", async (_request, reply) => {
+    if (fastify.authService.isShowcaseMode()) {
+      return reply.status(403).send({ error: "Forbidden" });
+    }
+
+    try {
+      await new BarkNotificationService(fastify.db).sendTest();
+      return { message: "Bark test notification sent" };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return reply.status(400).send({ error: message });
+    }
   });
 };
 

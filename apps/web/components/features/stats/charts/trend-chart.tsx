@@ -139,7 +139,7 @@ export const TrafficTrendChart = React.memo(
               <p className="text-xs text-muted-foreground mb-2">{title}</p>
               <div className="space-y-1">
                 <p className="text-sm flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: "var(--traffic-download)" }} />
                   <span className="text-muted-foreground">
                     {chartT("download")}:
                   </span>
@@ -148,7 +148,7 @@ export const TrafficTrendChart = React.memo(
                   </span>
                 </p>
                 <p className="text-sm flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-500" />
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: "var(--traffic-upload)" }} />
                   <span className="text-muted-foreground">
                     {chartT("upload")}:
                   </span>
@@ -320,14 +320,14 @@ export const TrafficTrendChart = React.memo(
               <span className="text-muted-foreground">
                 {t("totalDownload")}:
               </span>
-              <span className="font-semibold text-blue-500 tabular-nums">
+              <span className="font-semibold tabular-nums" style={{ color: "var(--traffic-download)" }}>
                 {formatBytes(stats.totalDownload)}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
               <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">{t("totalUpload")}:</span>
-              <span className="font-semibold text-purple-500 tabular-nums">
+              <span className="font-semibold tabular-nums" style={{ color: "var(--traffic-upload)" }}>
                 {formatBytes(stats.totalUpload)}
               </span>
             </div>
@@ -361,8 +361,8 @@ export const TrafficTrendChart = React.memo(
                       y1="0"
                       x2="0"
                       y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--traffic-download)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--traffic-download)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient
                       id="colorUpload"
@@ -370,8 +370,8 @@ export const TrafficTrendChart = React.memo(
                       y1="0"
                       x2="0"
                       y2="1">
-                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--traffic-upload)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--traffic-upload)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -401,7 +401,7 @@ export const TrafficTrendChart = React.memo(
                   <Area
                     type="monotone"
                     dataKey="download"
-                    stroke="#3b82f6"
+                    stroke="var(--traffic-download)"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorDownload)"
@@ -411,7 +411,7 @@ export const TrafficTrendChart = React.memo(
                   <Area
                     type="monotone"
                     dataKey="upload"
-                    stroke="#a855f7"
+                    stroke="var(--traffic-upload)"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorUpload)"
