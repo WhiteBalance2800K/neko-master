@@ -168,19 +168,25 @@ export const TopDomainsSimple = React.memo(function TopDomainsSimple({
                 {/* Progress bar */}
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden flex">
                   <div
-                    className="h-full bg-blue-500 dark:bg-blue-400"
-                    style={{ width: `${(domain.totalDownload / total) * barPercent}%` }}
+                    className="h-full"
+                    style={{
+                      width: `${(domain.totalDownload / total) * barPercent}%`,
+                      backgroundColor: "var(--traffic-download)",
+                    }}
                   />
                   <div
-                    className="h-full bg-purple-500 dark:bg-purple-400"
-                    style={{ width: `${(domain.totalUpload / total) * barPercent}%` }}
+                    className="h-full"
+                    style={{
+                      width: `${(domain.totalUpload / total) * barPercent}%`,
+                      backgroundColor: "var(--traffic-upload)",
+                    }}
                   />
                 </div>
                 {/* Stats */}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
-                  <span className="text-blue-500 dark:text-blue-400">↓ {formatBytes(domain.totalDownload)}</span>
-                  <span className="text-purple-500 dark:text-purple-400">↑ {formatBytes(domain.totalUpload)}</span>
+                  <span style={{ color: "var(--traffic-download)" }}>↓ {formatBytes(domain.totalDownload)}</span>
+                  <span style={{ color: "var(--traffic-upload)" }}>↑ {formatBytes(domain.totalUpload)}</span>
                     <span className="flex items-center gap-1 tabular-nums">
                       <Link2 className="w-3 h-3" />
                       {formatNumber(domain.totalConnections)}

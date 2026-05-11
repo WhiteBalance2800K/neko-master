@@ -70,11 +70,20 @@ import {
   useSettings,
   FaviconProvider,
   getFaviconUrl,
+  applyAppearanceSettings,
   RADIX_COLOR_OPTIONS,
   type RadixColorName,
+  type UserSettings,
 } from "@/lib/settings";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuthState, authKeys } from "@/lib/auth-queries";
 
 // Favicon Provider Preview Component
@@ -362,6 +371,7 @@ interface RetentionConfig {
 
 const DEFAULT_BARK_CONFIG: BarkNotificationConfig = {
   enabled: false,
+  backendId: null,
   serverUrl: "",
   totalThresholdBytes: 0,
   uploadThresholdBytes: 0,
@@ -724,9 +734,10 @@ export function BackendConfigDialog({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "backends" | "database" | "preferences" | "security"
+    "backends" | "bark" | "database" | "preferences" | "security"
   >("backends");
   const { settings, setSettings } = useSettings();
+  const [appearanceDraft, setAppearanceDraft] = useState<UserSettings>(settings);
   const [dbStats, setDbStats] = useState<DbStats | null>(null);
   const [clearingLogs, setClearingLogs] = useState(false);
 
@@ -749,6 +760,7 @@ export function BackendConfigDialog({
   const [updatingGeoLookup, setUpdatingGeoLookup] = useState(false);
   const [barkConfig, setBarkConfig] = useState<BarkNotificationConfig>(DEFAULT_BARK_CONFIG);
   const [barkForm, setBarkForm] = useState({
+    backendId: "",
     serverUrl: "",
     totalThresholdGb: "",
     uploadThresholdGb: "",
@@ -831,13 +843,22 @@ export function BackendConfigDialog({
 
   useEffect(() => {
     if (open) {
+      setAppearanceDraft(settings);
       loadBackends();
       loadDbStats();
       loadRetentionConfig();
       loadGeoLookupConfig();
       loadBarkNotificationConfig();
+    } else {
+      applyAppearanceSettings(settings);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setAppearanceDraft(settings);
+    }
+  }, [open, settings]);
 
   useEffect(() => {
     if (!open || !isFirstTime || backendsLoading || autoOpenedAddDialog) return;
@@ -915,6 +936,7 @@ export function BackendConfigDialog({
 
   const syncBarkForm = (config: BarkNotificationConfig) => {
     setBarkForm({
+      backendId: config.backendId ? String(config.backendId) : "",
       serverUrl: config.serverUrl || "",
       totalThresholdGb: bytesToGb(config.totalThresholdBytes),
       uploadThresholdGb: bytesToGb(config.uploadThresholdBytes),
@@ -938,6 +960,7 @@ export function BackendConfigDialog({
       setUpdatingBark(true);
       const result = await api.updateBarkNotificationConfig({
         enabled,
+        backendId: barkForm.backendId ? Number(barkForm.backendId) : null,
         serverUrl: barkForm.serverUrl.trim(),
         totalThresholdBytes: gbInputToBytes(barkForm.totalThresholdGb),
         uploadThresholdBytes: gbInputToBytes(barkForm.uploadThresholdGb),
@@ -968,6 +991,23 @@ export function BackendConfigDialog({
     } finally {
       setTestingBark(false);
     }
+  };
+
+  const previewAppearanceSetting = (updates: Partial<UserSettings>) => {
+    setAppearanceDraft((prev) => {
+      const next = { ...prev, ...updates };
+      applyAppearanceSettings(next);
+      return next;
+    });
+  };
+
+  const saveAppearanceSettings = () => {
+    setSettings({
+      backgroundColor: appearanceDraft.backgroundColor,
+      downloadColor: appearanceDraft.downloadColor,
+      uploadColor: appearanceDraft.uploadColor,
+    });
+    toast.success(t("preferencesSaved"));
   };
 
   const handleUpdateGeoLookupConfig = async (
@@ -1597,6 +1637,13 @@ export function BackendConfigDialog({
                 onClick={() => setActiveTab("preferences")}>
                 <SlidersHorizontal className="w-4 h-4 mr-2" />
                 {t("preferencesTab")}
+              </Button>
+              <Button
+                variant={activeTab === "bark" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setActiveTab("bark")}>
+                <Bell className="w-4 h-4 mr-2" />
+                {t("barkTab")}
               </Button>
               <Button
                 variant={activeTab === "security" ? "default" : "ghost"}
@@ -2276,22 +2323,110 @@ export function BackendConfigDialog({
 
                   <ColorSwatchPicker
                     label={t("backgroundColor")}
-                    value={settings.backgroundColor}
-                    onChange={(value) => setSettings({ backgroundColor: value })}
+                    value={appearanceDraft.backgroundColor}
+                    onChange={(value) => previewAppearanceSetting({ backgroundColor: value })}
                   />
                   <ColorSwatchPicker
                     label={t("downloadColor")}
-                    value={settings.downloadColor}
-                    onChange={(value) => setSettings({ downloadColor: value })}
+                    value={appearanceDraft.downloadColor}
+                    onChange={(value) => previewAppearanceSetting({ downloadColor: value })}
                   />
                   <ColorSwatchPicker
                     label={t("uploadColor")}
-                    value={settings.uploadColor}
-                    onChange={(value) => setSettings({ uploadColor: value })}
+                    value={appearanceDraft.uploadColor}
+                    onChange={(value) => previewAppearanceSetting({ uploadColor: value })}
                   />
                 </div>
 
-                {/* Bark Notifications */}
+                {/* GeoIP Lookup Provider */}
+                <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Radio className="w-4 h-4" />
+                    {t("geoLookupProvider")}
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    {t("geoLookupProviderDescription")}
+                  </p>
+
+                  <RadioGroup
+                    value={selectedGeoLookupProvider}
+                    onValueChange={handleGeoLookupProviderChange}
+                    className="space-y-2"
+                    disabled={updatingGeoLookup || isShowcase}>
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 rounded-md border p-3 transition-all",
+                        selectedGeoLookupProvider === "online"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/50",
+                        !(updatingGeoLookup || isShowcase) && "cursor-pointer",
+                      )}
+                      onClick={() => {
+                        if (updatingGeoLookup || isShowcase) return;
+                        handleGeoLookupProviderChange("online");
+                      }}>
+                      <RadioGroupItem value="online" id="geo-provider-online" />
+                      <Label htmlFor="geo-provider-online" className="cursor-pointer font-medium">
+                        {t("geoLookupOnline")}
+                      </Label>
+                    </div>
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 rounded-md border p-3 transition-all",
+                        selectedGeoLookupProvider === "local"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/50",
+                        !geoLookupConfig.localMmdbReady &&
+                          "opacity-60 cursor-not-allowed hover:bg-transparent",
+                        geoLookupConfig.localMmdbReady &&
+                          !(updatingGeoLookup || isShowcase) &&
+                          "cursor-pointer",
+                      )}
+                      onClick={() => {
+                        if (updatingGeoLookup || isShowcase || !geoLookupConfig.localMmdbReady) return;
+                        handleGeoLookupProviderChange("local");
+                      }}>
+                      <RadioGroupItem
+                        value="local"
+                        id="geo-provider-local"
+                        disabled={!geoLookupConfig.localMmdbReady}
+                      />
+                      <Label
+                        htmlFor="geo-provider-local"
+                        className={cn(
+                          "cursor-pointer font-medium",
+                          !geoLookupConfig.localMmdbReady && "cursor-not-allowed",
+                        )}>
+                        {t("geoLookupLocal")}
+                      </Label>
+                    </div>
+                  </RadioGroup>
+
+                  <p className="text-xs text-muted-foreground">
+                    {t("geoLookupFixedPathHint")}
+                  </p>
+                  {!geoLookupConfig.localMmdbReady && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {t("geoLookupLocalUnavailable", {
+                        files:
+                          geoLookupConfig.missingMmdbFiles.join(", ") ||
+                          "GeoLite2-City.mmdb, GeoLite2-ASN.mmdb",
+                      })}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={saveAppearanceSettings}
+                    disabled={isShowcase}>
+                    {t("savePreferences")}
+                  </Button>
+                </div>
+              </div>
+            ) : activeTab === "bark" ? (
+              <div className="space-y-6">
                 <div className="p-4 rounded-lg border bg-card space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -2310,20 +2445,47 @@ export function BackendConfigDialog({
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="bark-url">{t("barkServerUrl")}</Label>
-                    <Input
-                      id="bark-url"
-                      value={barkForm.serverUrl}
-                      onChange={(e) =>
-                        setBarkForm((prev) => ({ ...prev, serverUrl: e.target.value }))
-                      }
-                      disabled={isShowcase}
-                      placeholder="https://api.day.app/your-key"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t("barkServerUrlHint")}
-                    </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="bark-backend">{t("barkBackendScope")}</Label>
+                      <Select
+                        value={barkForm.backendId || "all"}
+                        disabled={isShowcase}
+                        onValueChange={(value) =>
+                          setBarkForm((prev) => ({ ...prev, backendId: value === "all" ? "" : value }))
+                        }>
+                        <SelectTrigger id="bark-backend">
+                          <SelectValue placeholder={t("barkAllBackends")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t("barkAllBackends")}</SelectItem>
+                          {backends.map((backend) => (
+                            <SelectItem key={backend.id} value={String(backend.id)}>
+                              {backend.name || backend.host || backend.url}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {t("barkBackendScopeHint")}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bark-url">{t("barkServerUrl")}</Label>
+                      <Input
+                        id="bark-url"
+                        value={barkForm.serverUrl}
+                        onChange={(e) =>
+                          setBarkForm((prev) => ({ ...prev, serverUrl: e.target.value }))
+                        }
+                        disabled={isShowcase}
+                        placeholder="https://api.day.app/your-key"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {t("barkServerUrlHint")}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2409,84 +2571,6 @@ export function BackendConfigDialog({
                       </Button>
                     </div>
                   </div>
-                </div>
-
-                {/* GeoIP Lookup Provider */}
-                <div className="p-4 rounded-lg border bg-card space-y-4">
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Radio className="w-4 h-4" />
-                    {t("geoLookupProvider")}
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    {t("geoLookupProviderDescription")}
-                  </p>
-
-                  <RadioGroup
-                    value={selectedGeoLookupProvider}
-                    onValueChange={handleGeoLookupProviderChange}
-                    className="space-y-2"
-                    disabled={updatingGeoLookup || isShowcase}>
-                    <div
-                      className={cn(
-                        "flex items-center gap-2 rounded-md border p-3 transition-all",
-                        selectedGeoLookupProvider === "online"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-muted/50",
-                        !(updatingGeoLookup || isShowcase) && "cursor-pointer",
-                      )}
-                      onClick={() => {
-                        if (updatingGeoLookup || isShowcase) return;
-                        handleGeoLookupProviderChange("online");
-                      }}>
-                      <RadioGroupItem value="online" id="geo-provider-online" />
-                      <Label htmlFor="geo-provider-online" className="cursor-pointer font-medium">
-                        {t("geoLookupOnline")}
-                      </Label>
-                    </div>
-                    <div
-                      className={cn(
-                        "flex items-center gap-2 rounded-md border p-3 transition-all",
-                        selectedGeoLookupProvider === "local"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-muted/50",
-                        !geoLookupConfig.localMmdbReady &&
-                          "opacity-60 cursor-not-allowed hover:bg-transparent",
-                        geoLookupConfig.localMmdbReady &&
-                          !(updatingGeoLookup || isShowcase) &&
-                          "cursor-pointer",
-                      )}
-                      onClick={() => {
-                        if (updatingGeoLookup || isShowcase || !geoLookupConfig.localMmdbReady) return;
-                        handleGeoLookupProviderChange("local");
-                      }}>
-                      <RadioGroupItem
-                        value="local"
-                        id="geo-provider-local"
-                        disabled={!geoLookupConfig.localMmdbReady}
-                      />
-                      <Label
-                        htmlFor="geo-provider-local"
-                        className={cn(
-                          "cursor-pointer font-medium",
-                          !geoLookupConfig.localMmdbReady && "cursor-not-allowed",
-                        )}>
-                        {t("geoLookupLocal")}
-                      </Label>
-                    </div>
-                  </RadioGroup>
-
-                  <p className="text-xs text-muted-foreground">
-                    {t("geoLookupFixedPathHint")}
-                  </p>
-                  {!geoLookupConfig.localMmdbReady && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      {t("geoLookupLocalUnavailable", {
-                        files:
-                          geoLookupConfig.missingMmdbFiles.join(", ") ||
-                          "GeoLite2-City.mmdb, GeoLite2-ASN.mmdb",
-                      })}
-                    </p>
-                  )}
                 </div>
               </div>
             ) : activeTab === "security" ? (

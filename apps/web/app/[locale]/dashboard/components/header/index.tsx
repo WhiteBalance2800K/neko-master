@@ -136,7 +136,7 @@ export function Header({
   const aboutT = useTranslations("about");
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-md">
+    <header className="app-surface sticky top-0 z-40 border-b border-border/40 backdrop-blur-md">
       <div className="flex items-center justify-between h-14 px-4 lg:px-6">
         <div className="flex items-center gap-3">
           {/* Mobile: Logo */}

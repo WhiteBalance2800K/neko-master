@@ -98,6 +98,8 @@
   --traffic-download: #3b82f6;
   --traffic-upload: #8b5cf6;
   --traffic-total: #ec4899;
+  --app-bg-tint: #3b82f6;
+  --app-surface-tint: #3b82f6;
   --sidebar: #ffffff;
   --sidebar-foreground: #1a1d29;
   --sidebar-primary: #0063ff;
@@ -150,20 +152,21 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    background-color: color-mix(in srgb, var(--background) 88%, var(--app-bg-tint) 12%);
     background-image:
       radial-gradient(
         ellipse at 0% 0%,
-        color-mix(in srgb, var(--user-bg-accent) 12%, transparent) 0%,
-        transparent 50%
+        color-mix(in srgb, var(--user-bg-accent) 30%, transparent) 0%,
+        transparent 48%
       ),
       radial-gradient(
         ellipse at 100% 0%,
-        color-mix(in srgb, var(--traffic-upload) 8%, transparent) 0%,
+        color-mix(in srgb, var(--traffic-upload) 14%, transparent) 0%,
         transparent 50%
       ),
       radial-gradient(
         ellipse at 100% 100%,
-        color-mix(in srgb, var(--traffic-download) 8%, transparent) 0%,
+        color-mix(in srgb, var(--traffic-download) 14%, transparent) 0%,
         transparent 50%
       );
     background-attachment: fixed;
@@ -188,6 +191,20 @@
       margin-right: 0 !important;
     }
   }
+}
+
+.app-shell {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--background) 78%, var(--app-bg-tint) 22%) 0%,
+      color-mix(in srgb, var(--background) 92%, var(--app-bg-tint) 8%) 48%,
+      var(--background) 100%
+    );
+}
+
+.app-surface {
+  background-color: color-mix(in srgb, var(--background) 84%, var(--app-surface-tint) 16%);
 }
 
 /* Glass Card Effect */

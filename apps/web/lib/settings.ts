@@ -93,6 +93,8 @@ export function applyAppearanceSettings(settings: UserSettings): void {
   root.style.setProperty("--traffic-upload", upload);
   root.style.setProperty("--traffic-download", download);
   root.style.setProperty("--traffic-total", resolveColor("pink"));
+  root.style.setProperty("--app-bg-tint", background);
+  root.style.setProperty("--app-surface-tint", background);
 }
 
 // Get settings from cache (sync, returns same reference if unchanged)

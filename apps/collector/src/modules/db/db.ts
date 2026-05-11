@@ -1044,6 +1044,7 @@ export class StatsDatabase {
   }
   updateBarkNotificationConfig(updates: {
     enabled?: boolean;
+    backendId?: number | null;
     serverUrl?: string;
     totalThresholdBytes?: number;
     uploadThresholdBytes?: number;

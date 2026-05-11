@@ -354,6 +354,7 @@ const configController: FastifyPluginAsync = async (fastify: FastifyInstance): P
 
     const body = request.body as {
       enabled?: boolean;
+      backendId?: number | null;
       serverUrl?: string;
       totalThresholdBytes?: number;
       uploadThresholdBytes?: number;
@@ -365,6 +366,20 @@ const configController: FastifyPluginAsync = async (fastify: FastifyInstance): P
 
     if (body.enabled !== undefined) {
       updates.enabled = Boolean(body.enabled);
+    }
+    if (body.backendId !== undefined) {
+      if (body.backendId === null) {
+        updates.backendId = null;
+      } else {
+        const backendId = Number(body.backendId);
+        if (!Number.isInteger(backendId) || backendId < 1) {
+          return reply.status(400).send({ error: "backendId must be a positive integer or null" });
+        }
+        if (!fastify.db.getBackend(backendId)) {
+          return reply.status(400).send({ error: "backendId does not exist" });
+        }
+        updates.backendId = backendId;
+      }
     }
     if (body.serverUrl !== undefined) {
       const serverUrl = String(body.serverUrl).trim();

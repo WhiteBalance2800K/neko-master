@@ -211,6 +211,7 @@ export interface GeoLookupConfig {
 
 export interface BarkNotificationConfig {
   enabled: boolean;
+  backendId: number | null;
   serverUrl: string;
   totalThresholdBytes: number;
   uploadThresholdBytes: number;
@@ -246,6 +247,7 @@ const DEFAULT_GEO_LOOKUP_CONFIG: GeoLookupConfig = {
 
 const DEFAULT_BARK_NOTIFICATION_CONFIG: BarkNotificationConfig = {
   enabled: false,
+  backendId: null,
   serverUrl: "",
   totalThresholdBytes: 0,
   uploadThresholdBytes: 0,

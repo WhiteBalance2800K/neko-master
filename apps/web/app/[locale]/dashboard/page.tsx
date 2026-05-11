@@ -57,7 +57,7 @@ export default function DashboardPage() {
   } = useDashboard();
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="app-shell flex min-h-screen">
       <Sidebar
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab as TabId)}

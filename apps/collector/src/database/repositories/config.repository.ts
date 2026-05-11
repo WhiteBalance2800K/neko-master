@@ -27,6 +27,7 @@ export interface GeoLookupConfig {
 
 export interface BarkNotificationConfig {
   enabled: boolean;
+  backendId: number | null;
   serverUrl: string;
   totalThresholdBytes: number;
   uploadThresholdBytes: number;
@@ -231,8 +232,10 @@ export class ConfigRepository extends BaseRepository {
   }
 
   getBarkNotificationConfig(): BarkNotificationConfig {
+    const backendId = this.getConfigNumber('notification.bark.backend_id', 0);
     return {
       enabled: this.getConfigValue('notification.bark.enabled') === '1',
+      backendId: backendId > 0 ? backendId : null,
       serverUrl: this.getConfigValue('notification.bark.server_url') || '',
       totalThresholdBytes: this.getConfigNumber('notification.bark.total_threshold_bytes', 0),
       uploadThresholdBytes: this.getConfigNumber('notification.bark.upload_threshold_bytes', 0),
@@ -249,6 +252,7 @@ export class ConfigRepository extends BaseRepository {
 
   updateBarkNotificationConfig(updates: {
     enabled?: boolean;
+    backendId?: number | null;
     serverUrl?: string;
     totalThresholdBytes?: number;
     uploadThresholdBytes?: number;
@@ -257,6 +261,19 @@ export class ConfigRepository extends BaseRepository {
   }): BarkNotificationConfig {
     if (updates.enabled !== undefined) {
       this.setConfigValue('notification.bark.enabled', updates.enabled ? '1' : '0');
+    }
+    if (updates.backendId !== undefined) {
+      const currentBackendId = this.getConfigNumber('notification.bark.backend_id', 0);
+      const parsedBackendId = updates.backendId === null ? 0 : Number(updates.backendId);
+      const backendId = Number.isFinite(parsedBackendId) ? Math.max(0, Math.floor(parsedBackendId)) : 0;
+      this.setConfigValue('notification.bark.backend_id', String(backendId));
+      if (backendId !== currentBackendId) {
+        for (const metric of ['total', 'upload', 'download'] as const) {
+          const prefix = `notification.bark.last_${metric}`;
+          this.setConfigValue(`${prefix}_notified_at`, '');
+          this.setConfigValue(`${prefix}_threshold_bytes`, '0');
+        }
+      }
     }
     if (updates.serverUrl !== undefined) {
       this.setConfigValue('notification.bark.server_url', updates.serverUrl);

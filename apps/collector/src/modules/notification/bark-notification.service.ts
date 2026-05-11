@@ -75,7 +75,13 @@ export class BarkNotificationService {
       const config = this.db.getBarkNotificationConfig();
       if (!config.enabled || !config.serverUrl.trim()) return;
 
-      const summary = this.db.getGlobalSummary();
+      const backend = config.backendId ? this.db.getBackend(config.backendId) : null;
+      if (config.backendId && !backend) return;
+
+      const summary = config.backendId
+        ? this.db.getSummary(config.backendId)
+        : this.db.getGlobalSummary();
+      const scopeLabel = backend ? `（${backend.name}）` : '';
       const values: Record<BarkMetric, number> = {
         total: summary.totalUpload + summary.totalDownload,
         upload: summary.totalUpload,
@@ -97,7 +103,7 @@ export class BarkNotificationService {
         await this.send(
           config.serverUrl,
           `Neko Master ${label}提醒`,
-          `${label}已达到 ${formatBytes(value)}，阈值 ${formatBytes(threshold)}。`,
+          `${label}${scopeLabel}已达到 ${formatBytes(value)}，阈值 ${formatBytes(threshold)}。`,
         );
         this.db.markBarkNotificationSent(metric, threshold);
       }

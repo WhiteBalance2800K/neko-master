@@ -131,6 +131,7 @@ describe("GeoIP config API", () => {
       url: "/api/db/notifications/bark",
       payload: {
         enabled: true,
+        backendId,
         serverUrl: "https://api.day.app/test-key",
         totalThresholdBytes: 10,
         uploadThresholdBytes: 20,
@@ -143,6 +144,7 @@ describe("GeoIP config API", () => {
     const payload = response.json() as {
       config: {
         enabled: boolean;
+        backendId: number | null;
         serverUrl: string;
         totalThresholdBytes: number;
         uploadThresholdBytes: number;
@@ -152,12 +154,27 @@ describe("GeoIP config API", () => {
       };
     };
     expect(payload.config.enabled).toBe(true);
+    expect(payload.config.backendId).toBe(backendId);
     expect(payload.config.serverUrl).toBe("https://api.day.app/test-key");
     expect(payload.config.totalThresholdBytes).toBe(10);
     expect(payload.config.uploadThresholdBytes).toBe(20);
     expect(payload.config.downloadThresholdBytes).toBe(30);
     expect(payload.config.cooldownMinutes).toBe(60);
     expect(payload.config.lastTotalThresholdBytes).toBeUndefined();
+
+    db.markBarkNotificationSent("total", 10, "2026-01-01T00:00:00.000Z");
+    expect(db.getBarkNotificationConfig().lastTotalThresholdBytes).toBe(10);
+
+    const scopeResponse = await app.inject({
+      method: "PUT",
+      url: "/api/db/notifications/bark",
+      payload: { backendId: null },
+    });
+    expect(scopeResponse.statusCode).toBe(200);
+    const resetConfig = db.getBarkNotificationConfig();
+    expect(resetConfig.backendId).toBeNull();
+    expect(resetConfig.lastTotalThresholdBytes).toBe(0);
+    expect(resetConfig.lastTotalNotifiedAt).toBe("");
 
     const getResponse = await app.inject({
       method: "GET",

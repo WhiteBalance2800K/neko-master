@@ -102,7 +102,7 @@ export function Navigation({
   return (
     <>
       {/* Desktop Navigation - Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 border-r border-border/40 bg-background/80 backdrop-blur-md">
+      <aside className="app-surface hidden lg:flex flex-col w-64 h-screen sticky top-0 border-r border-border/40 backdrop-blur-md">
         {/* Logo */}
         <div className="flex items-start gap-3 p-6 border-b border-border/40">
           <div className="w-14 h-14 rounded-xl shrink-0 flex items-center justify-center overflow-hidden hover:opacity-80">
@@ -277,7 +277,7 @@ export function Navigation({
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background/80 backdrop-blur-md">
+      <nav className="app-surface lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 backdrop-blur-md">
         <div className="h-16 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex items-center h-full min-w-full px-1">
             {NAV_ITEMS.map((item) => {
