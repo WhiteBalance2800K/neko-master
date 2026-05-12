@@ -4,6 +4,9 @@ import { useCallback, useSyncExternalStore } from "react";
 
 export type FaviconProvider = "google" | "faviconim" | "off";
 export type RadixColorName =
+  | "black"
+  | "white"
+  | "gray"
   | "blue"
   | "indigo"
   | "violet"
@@ -24,6 +27,9 @@ export interface RadixColorOption {
 }
 
 export const RADIX_COLOR_OPTIONS: RadixColorOption[] = [
+  { name: "black", label: "Black", value: "#050505" },
+  { name: "white", label: "White", value: "#ffffff" },
+  { name: "gray", label: "Gray", value: "#8f8f8f" },
   { name: "blue", label: "Blue", value: "#0090ff" },
   { name: "indigo", label: "Indigo", value: "#3e63dd" },
   { name: "violet", label: "Violet", value: "#6e56cf" },

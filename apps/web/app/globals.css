@@ -100,6 +100,8 @@
   --traffic-total: #ec4899;
   --app-bg-tint: #3b82f6;
   --app-surface-tint: #3b82f6;
+  --app-canvas: color-mix(in srgb, var(--background) 88%, var(--app-bg-tint) 12%);
+  --app-chrome: transparent;
   --sidebar: #ffffff;
   --sidebar-foreground: #1a1d29;
   --sidebar-primary: #0063ff;
@@ -143,6 +145,8 @@
   --sidebar-accent-foreground: #f8fafc;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #3b82f6;
+  --app-canvas: color-mix(in srgb, var(--background) 86%, var(--app-bg-tint) 14%);
+  --app-chrome: transparent;
 }
 
 @layer base {
@@ -152,23 +156,8 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
-    background-color: color-mix(in srgb, var(--background) 88%, var(--app-bg-tint) 12%);
-    background-image:
-      radial-gradient(
-        ellipse at 0% 0%,
-        color-mix(in srgb, var(--user-bg-accent) 30%, transparent) 0%,
-        transparent 48%
-      ),
-      radial-gradient(
-        ellipse at 100% 0%,
-        color-mix(in srgb, var(--traffic-upload) 14%, transparent) 0%,
-        transparent 50%
-      ),
-      radial-gradient(
-        ellipse at 100% 100%,
-        color-mix(in srgb, var(--traffic-download) 14%, transparent) 0%,
-        transparent 50%
-      );
+    background-color: var(--app-canvas);
+    background-image: none;
     background-attachment: fixed;
   }
 
@@ -194,17 +183,12 @@
 }
 
 .app-shell {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--background) 78%, var(--app-bg-tint) 22%) 0%,
-      color-mix(in srgb, var(--background) 92%, var(--app-bg-tint) 8%) 48%,
-      var(--background) 100%
-    );
+  background: var(--app-canvas);
 }
 
 .app-surface {
-  background-color: color-mix(in srgb, var(--background) 84%, var(--app-surface-tint) 16%);
+  background-color: var(--app-chrome);
+  border-color: transparent;
 }
 
 /* Glass Card Effect */
