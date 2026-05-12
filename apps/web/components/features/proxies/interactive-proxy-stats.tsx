@@ -344,13 +344,13 @@ export function InteractiveProxyStats({
                       </div>
                       <div className="pl-7 space-y-1">
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden flex">
-                          <div className="h-full bg-blue-500 dark:bg-blue-400" style={{ width: `${item.value > 0 ? (item.download / item.value) * barPercent : 0}%` }} />
-                          <div className="h-full bg-purple-500 dark:bg-purple-400" style={{ width: `${item.value > 0 ? (item.upload / item.value) * barPercent : 0}%` }} />
+                          <div className="h-full traffic-download-bg" style={{ width: `${item.value > 0 ? (item.download / item.value) * barPercent : 0}%` }} />
+                          <div className="h-full traffic-upload-bg" style={{ width: `${item.value > 0 ? (item.upload / item.value) * barPercent : 0}%` }} />
                         </div>
                         <div className="grid grid-cols-1 min-[300px]:grid-cols-[1fr_auto] gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                            <span className="text-blue-500 dark:text-blue-400 whitespace-nowrap">↓ {formatBytes(item.download)}</span>
-                            <span className="text-purple-500 dark:text-blue-400 whitespace-nowrap">↑ {formatBytes(item.upload)}</span>
+                            <span className="traffic-download-text whitespace-nowrap">↓ {formatBytes(item.download)}</span>
+                            <span className="traffic-upload-text whitespace-nowrap">↑ {formatBytes(item.upload)}</span>
                             <span className="flex items-center gap-1 tabular-nums"><Link2 className="w-3 h-3" />{formatNumber(item.connections)}</span>
                           </div>
                           <span className="tabular-nums text-right min-[300px]:text-right">{percentage.toFixed(1)}%</span>
@@ -394,7 +394,7 @@ export function InteractiveProxyStats({
                     <RechartsTooltip content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const item = payload[0].payload;
-                        return (<div className="bg-background border border-border p-3 rounded-lg shadow-lg min-w-[160px]"><div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50"><Favicon domain={item.fullName} size="sm" /><span className="font-medium text-sm truncate max-w-[180px]" title={item.fullName}>{item.fullName}</span></div><div className="space-y-2 text-xs"><div className="flex justify-between items-center"><span className="text-muted-foreground">Total</span><span className="font-semibold">{formatBytes(item.total)}</span></div><div className="flex justify-between items-center"><span className="text-blue-500">Download</span><span>{formatBytes(item.download)}</span></div><div className="flex justify-between items-center"><span className="text-purple-500">Upload</span><span>{formatBytes(item.upload)}</span></div><div className="flex justify-between items-center pt-1 border-t border-border/50"><span className="text-emerald-500">Connections</span><span>{formatNumber(item.connections)}</span></div></div></div>);
+                        return (<div className="bg-background border border-border p-3 rounded-lg shadow-lg min-w-[160px]"><div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50"><Favicon domain={item.fullName} size="sm" /><span className="font-medium text-sm truncate max-w-[180px]" title={item.fullName}>{item.fullName}</span></div><div className="space-y-2 text-xs"><div className="flex justify-between items-center"><span className="text-muted-foreground">Total</span><span className="font-semibold">{formatBytes(item.total)}</span></div><div className="flex justify-between items-center"><span className="traffic-download-text">Download</span><span>{formatBytes(item.download)}</span></div><div className="flex justify-between items-center"><span className="traffic-upload-text">Upload</span><span>{formatBytes(item.upload)}</span></div><div className="flex justify-between items-center pt-1 border-t border-border/50"><span className="text-emerald-500">Connections</span><span>{formatNumber(item.connections)}</span></div></div></div>);
                       }
                       return null;
                     }} cursor={{ fill: "rgba(128, 128, 128, 0.1)" }} />

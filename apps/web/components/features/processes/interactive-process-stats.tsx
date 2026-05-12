@@ -77,8 +77,12 @@ function DetailMetricList({
                     {name || "DIRECT"}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span>DL {formatBytes(item.totalDownload)}</span>
-                    <span>UL {formatBytes(item.totalUpload)}</span>
+                    <span className="traffic-download-text">
+                      DL {formatBytes(item.totalDownload)}
+                    </span>
+                    <span className="traffic-upload-text">
+                      UL {formatBytes(item.totalUpload)}
+                    </span>
                     <span className="inline-flex items-center gap-1">
                       <Link2 className="h-3 w-3" />
                       {formatNumber(item.totalConnections)}

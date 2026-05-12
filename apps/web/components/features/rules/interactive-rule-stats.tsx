@@ -522,19 +522,19 @@ export function InteractiveRuleStats({
                         {/* Progress bar - dual color */}
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden flex">
                           <div
-                            className="h-full bg-blue-500 dark:bg-blue-400"
+                            className="h-full traffic-download-bg"
                             style={{ width: `${item.value > 0 ? (item.download / item.value) * barPercent : 0}%` }}
                           />
                           <div
-                            className="h-full bg-purple-500 dark:bg-purple-400"
+                            className="h-full traffic-upload-bg"
                             style={{ width: `${item.value > 0 ? (item.upload / item.value) * barPercent : 0}%` }}
                           />
                         </div>
                         {/* Stats */}
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                            <span className="text-blue-500 dark:text-blue-400 whitespace-nowrap">↓ {formatBytes(item.download)}</span>
-                            <span className="text-purple-500 dark:text-blue-400 whitespace-nowrap">↑ {formatBytes(item.upload)}</span>
+                            <span className="traffic-download-text whitespace-nowrap">↓ {formatBytes(item.download)}</span>
+                            <span className="traffic-upload-text whitespace-nowrap">↑ {formatBytes(item.upload)}</span>
                             <span className="flex items-center gap-1 tabular-nums">
                               <Link2 className="w-3 h-3" />
                               {formatNumber(item.connections)}
@@ -573,23 +573,23 @@ export function InteractiveRuleStats({
                         {/* Progress bar */}
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden flex">
                           <div
-                            className="h-full bg-blue-500 dark:bg-blue-400"
+                            className="h-full traffic-download-bg"
                             style={{ width: `${item.value > 0 ? (item.download / item.value) * 100 : 0}%` }}
                           />
                           <div
-                            className="h-full bg-purple-500 dark:bg-purple-400"
+                            className="h-full traffic-upload-bg"
                             style={{ width: `${item.value > 0 ? (item.upload / item.value) * 100 : 0}%` }}
                           />
                         </div>
                         
                         {/* Download / Upload / Connections */}
                         <div className="grid grid-cols-3 gap-1 text-xs">
-                          <div className="text-center p-1 rounded bg-blue-50 dark:bg-blue-950/30">
-                            <div className="text-blue-500 dark:text-blue-400 mb-0.5">↓</div>
+                          <div className="text-center p-1 rounded traffic-download-soft-surface">
+                            <div className="traffic-download-text mb-0.5">↓</div>
                             <div className="font-medium tabular-nums truncate">{formatBytes(item.download)}</div>
                           </div>
-                          <div className="text-center p-1 rounded bg-purple-50 dark:bg-purple-950/30">
-                            <div className="text-purple-500 dark:text-purple-400 mb-0.5">↑</div>
+                          <div className="text-center p-1 rounded traffic-upload-soft-surface">
+                            <div className="traffic-upload-text mb-0.5">↑</div>
                             <div className="font-medium tabular-nums truncate">{formatBytes(item.upload)}</div>
                           </div>
                           <div className="text-center p-1 rounded bg-muted/50">
@@ -684,11 +684,11 @@ export function InteractiveRuleStats({
                                   <span className="font-semibold text-foreground">{formatBytes(item.total)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                  <span className="text-blue-500">Download</span>
+                                  <span className="traffic-download-text">Download</span>
                                   <span className="text-foreground">{formatBytes(item.download)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                  <span className="text-purple-500">Upload</span>
+                                  <span className="traffic-upload-text">Upload</span>
                                   <span className="text-foreground">{formatBytes(item.upload)}</span>
                                 </div>
                                 <div className="flex justify-between items-center pt-1 border-t border-border/50">

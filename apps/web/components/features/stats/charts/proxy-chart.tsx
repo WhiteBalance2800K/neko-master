@@ -41,37 +41,6 @@ const CHART_CONFIG = {
   100: { height: 1200, barSize: 14, showAllLabels: true },
 } as const;
 
-const DOMAIN_COLORS = [
-  "#3B82F6", // Blue
-  "#8B5CF6", // Purple
-  "#06B6D4", // Cyan
-  "#10B981", // Emerald
-  "#F59E0B", // Amber
-  "#EF4444", // Red
-  "#EC4899", // Pink
-  "#6366F1", // Indigo
-  "#14B8A6", // Teal
-  "#F97316", // Orange
-];
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const clean = hex.replace("#", "");
-  const full = clean.length === 3
-    ? clean.split("").map((c) => c + c).join("")
-    : clean;
-  const int = parseInt(full, 16);
-  return {
-    r: (int >> 16) & 255,
-    g: (int >> 8) & 255,
-    b: int & 255,
-  };
-}
-
-function withAlpha(hex: string, alpha: number): string {
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 // Custom label renderer to prevent text wrapping in SVG
 function renderCustomBarLabel(props: any) {
   const { x, y, width, value, height } = props;
@@ -157,8 +126,7 @@ export function TopDomainsChart({ data, activeBackendId, timeRange }: TopDomains
 
   const chartData = useMemo(() => {
     if (!domains || domains.length === 0) return [];
-    const result = domains.map((domain: DomainStats, index: number) => ({
-      baseColor: DOMAIN_COLORS[index % DOMAIN_COLORS.length],
+    const result = domains.map((domain: DomainStats) => ({
       name: domain.domain,
       fullDomain: domain.domain,
       total: domain.totalDownload + domain.totalUpload,
@@ -193,13 +161,13 @@ export function TopDomainsChart({ data, activeBackendId, timeRange }: TopDomains
               </span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-blue-500">{commonT("download")}:</span>
+              <span className="traffic-download-text">{commonT("download")}:</span>
               <span className="text-foreground">
                 {formatBytes(item.download)}
               </span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-purple-500">{commonT("upload")}:</span>
+              <span className="traffic-upload-text">{commonT("upload")}:</span>
               <span className="text-foreground">
                 {formatBytes(item.upload)}
               </span>
@@ -291,7 +259,7 @@ export function TopDomainsChart({ data, activeBackendId, timeRange }: TopDomains
                 {chartData.map((entry, index) => (
                   <Cell
                     key={`download-cell-${entry.fullDomain}-${index}`}
-                    fill={withAlpha(entry.baseColor, 0.75)}
+                    fill="var(--traffic-download)"
                   />
                 ))}
               </Bar>
@@ -305,7 +273,7 @@ export function TopDomainsChart({ data, activeBackendId, timeRange }: TopDomains
                 {chartData.map((entry, index) => (
                   <Cell
                     key={`upload-cell-${entry.fullDomain}-${index}`}
-                    fill={entry.baseColor}
+                    fill="var(--traffic-upload)"
                   />
                 ))}
                 {showLabels && (

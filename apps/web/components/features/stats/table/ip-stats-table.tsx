@@ -485,11 +485,11 @@ export function IPStatsTable({
                       </div>
 
                       <div className="col-span-2 text-right tabular-nums text-sm whitespace-nowrap">
-                        <span className="text-blue-500">{formatBytes(ip.totalDownload)}</span>
+                        <span className="traffic-download-text">{formatBytes(ip.totalDownload)}</span>
                       </div>
 
                       <div className="col-span-1 text-right tabular-nums text-sm whitespace-nowrap">
-                        <span className="text-purple-500">{formatBytes(ip.totalUpload)}</span>
+                        <span className="traffic-upload-text">{formatBytes(ip.totalUpload)}</span>
                       </div>
 
                       <div className="col-span-1 flex items-center justify-end">
@@ -586,8 +586,8 @@ export function IPStatsTable({
                       </div>
 
                       <div className="flex items-center justify-between text-xs pl-[30px]">
-                        <span className="text-blue-500 tabular-nums whitespace-nowrap">↓ {formatBytes(ip.totalDownload)}</span>
-                        <span className="text-purple-500 tabular-nums whitespace-nowrap">↑ {formatBytes(ip.totalUpload)}</span>
+                        <span className="traffic-download-text tabular-nums whitespace-nowrap">↓ {formatBytes(ip.totalDownload)}</span>
+                        <span className="traffic-upload-text tabular-nums whitespace-nowrap">↑ {formatBytes(ip.totalUpload)}</span>
                         <span className="px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
                           {formatNumber(ip.totalConnections)} {t("conn")}
                         </span>

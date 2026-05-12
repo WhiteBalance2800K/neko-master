@@ -6,7 +6,7 @@ import {
   keepPreviousData,
   useQuery,
 } from "@tanstack/react-query";
-import { BarChart3, Link2, Settings } from "lucide-react";
+import { BarChart3, Link2 } from "lucide-react";
 import { StatsCards } from "@/components/features/stats";
 import { OverviewTab } from "@/components/overview";
 import { InteractiveProxyStats } from "@/components/features/proxies";
@@ -69,7 +69,6 @@ interface ContentProps {
   activeBackendId?: number;
   backendStatus: BackendStatus;
   onNavigate?: (tab: string) => void;
-  onOpenBackendDialog?: () => void;
   isLoading?: boolean;
 }
 
@@ -442,39 +441,10 @@ const SourcesContent = memo(function SourcesContent({
 
 const SystemContent = memo(function SystemContent({
   timeRange,
-  onOpenBackendDialog,
 }: {
   timeRange: TimeRange;
-  onOpenBackendDialog?: () => void;
 }) {
-  const healthT = useTranslations("health");
-  const backendT = useTranslations("backend");
-  const systemT = useTranslations("system");
-
-  return (
-    <Tabs defaultValue="health" className="w-full">
-      <TabsList className="glass">
-        <TabsTrigger value="health">{healthT("title")}</TabsTrigger>
-        <TabsTrigger value="backend">{backendT("title")}</TabsTrigger>
-      </TabsList>
-      <TabsContent value="health" className="mt-4">
-        <HealthContent timeRange={timeRange} />
-      </TabsContent>
-      <TabsContent value="backend" className="mt-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              <Settings className="h-4 w-4" />
-              {backendT("title")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={onOpenBackendDialog}>{systemT("openBackendSettings")}</Button>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
-  );
+  return <HealthContent timeRange={timeRange} />;
 });
 
 export function Content({
@@ -488,7 +458,6 @@ export function Content({
   activeBackendId,
   backendStatus,
   onNavigate,
-  onOpenBackendDialog,
 }: ContentProps) {
   setPreferredTrafficUnitFromValues(collectTrafficUnitValues(data, countryData));
 
@@ -537,7 +506,7 @@ export function Content({
           />
         );
       case "system":
-        return <SystemContent timeRange={timeRange} onOpenBackendDialog={onOpenBackendDialog} />;
+        return <SystemContent timeRange={timeRange} />;
       default:
         return (
           <OverviewContent

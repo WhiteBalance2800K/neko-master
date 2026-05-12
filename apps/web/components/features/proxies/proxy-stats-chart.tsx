@@ -70,11 +70,11 @@ export function ProxyStatsChart({ data }: ProxyStatsChartProps) {
               <span className="font-medium">{formatBytes(item.value)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-blue-500">↓ {t("download")}:</span>
+              <span className="traffic-download-text">↓ {t("download")}:</span>
               <span>{formatBytes(item.download)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-purple-500">↑ {t("upload")}:</span>
+              <span className="traffic-upload-text">↑ {t("upload")}:</span>
               <span>{formatBytes(item.upload)}</span>
             </div>
             <div className="flex justify-between gap-4">
@@ -164,10 +164,10 @@ export function ProxyStatsChart({ data }: ProxyStatsChartProps) {
 
                   {/* Download/Upload row */}
                   <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-blue-500 tabular-nums">
+                    <span className="traffic-download-text tabular-nums">
                       ↓ {formatBytes(item.download)}
                     </span>
-                    <span className="text-purple-500 tabular-nums">
+                    <span className="traffic-upload-text tabular-nums">
                       ↑ {formatBytes(item.upload)}
                     </span>
                   </div>

@@ -191,6 +191,30 @@
   border-color: transparent;
 }
 
+.traffic-download-text {
+  color: var(--traffic-download);
+}
+
+.traffic-upload-text {
+  color: var(--traffic-upload);
+}
+
+.traffic-download-bg {
+  background-color: var(--traffic-download);
+}
+
+.traffic-upload-bg {
+  background-color: var(--traffic-upload);
+}
+
+.traffic-download-soft-surface {
+  background-color: color-mix(in srgb, var(--traffic-download) 12%, transparent);
+}
+
+.traffic-upload-soft-surface {
+  background-color: color-mix(in srgb, var(--traffic-upload) 12%, transparent);
+}
+
 /* Glass Card Effect */
 .glass-card {
   background: rgba(23, 28, 43, 0.6);

@@ -545,7 +545,7 @@ export function DomainStatsTable({
                       )}
 
                       <div className="col-span-2 text-right tabular-nums text-sm whitespace-nowrap">
-                        <span className="text-blue-500">{formatBytes(domain.totalDownload)}</span>
+                        <span className="traffic-download-text">{formatBytes(domain.totalDownload)}</span>
                       </div>
 
                       <div
@@ -554,7 +554,7 @@ export function DomainStatsTable({
                           "text-right tabular-nums text-sm whitespace-nowrap",
                         )}
                       >
-                        <span className="text-purple-500">{formatBytes(domain.totalUpload)}</span>
+                        <span className="traffic-upload-text">{formatBytes(domain.totalUpload)}</span>
                       </div>
 
                       <div className="col-span-1 flex items-center justify-end">
@@ -660,10 +660,10 @@ export function DomainStatsTable({
                       )}
 
                       <div className="flex items-center justify-between text-xs pl-[30px]">
-                        <span className="text-blue-500 tabular-nums whitespace-nowrap">
+                        <span className="traffic-download-text tabular-nums whitespace-nowrap">
                           ↓ {formatBytes(domain.totalDownload)}
                         </span>
-                        <span className="text-purple-500 tabular-nums whitespace-nowrap">
+                        <span className="traffic-upload-text tabular-nums whitespace-nowrap">
                           ↑ {formatBytes(domain.totalUpload)}
                         </span>
                         <span className="px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">

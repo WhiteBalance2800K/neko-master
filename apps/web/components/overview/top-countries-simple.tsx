@@ -136,19 +136,19 @@ export const TopCountriesSimple = React.memo(function TopCountriesSimple({
                 {/* Progress bar */}
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden flex">
                   <div 
-                    className="h-full bg-blue-500 dark:bg-blue-400" 
+                    className="h-full traffic-download-bg"
                     style={{ width: `${(country.totalDownload / total) * barPercent}%` }}
                   />
                   <div 
-                    className="h-full bg-purple-500 dark:bg-purple-400" 
+                    className="h-full traffic-upload-bg"
                     style={{ width: `${(country.totalUpload / total) * barPercent}%` }}
                   />
                 </div>
                 {/* Stats */}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <span className="text-blue-500 dark:text-blue-400">↓ {formatBytes(country.totalDownload)}</span>
-                    <span className="text-purple-500 dark:text-purple-400">↑ {formatBytes(country.totalUpload)}</span>
+                    <span className="traffic-download-text">↓ {formatBytes(country.totalDownload)}</span>
+                    <span className="traffic-upload-text">↑ {formatBytes(country.totalUpload)}</span>
                     <span className="flex items-center gap-1 tabular-nums">
                       <Link2 className="w-3 h-3" />
                       {formatNumber(country.totalConnections)}

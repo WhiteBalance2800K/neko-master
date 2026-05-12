@@ -145,10 +145,10 @@ export function ProxyTopGrid({
 
               {/* Stats */}
               <div className="flex items-center gap-4 text-xs">
-                <span className="text-blue-500 tabular-nums">
+                <span className="traffic-download-text tabular-nums">
                   ↓ {formatBytes(proxy.totalDownload)}
                 </span>
-                <span className="text-purple-500 tabular-nums">
+                <span className="traffic-upload-text tabular-nums">
                   ↑ {formatBytes(proxy.totalUpload)}
                 </span>
                 <span className="text-muted-foreground flex items-center gap-1">

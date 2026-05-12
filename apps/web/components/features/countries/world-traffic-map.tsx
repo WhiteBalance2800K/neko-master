@@ -233,11 +233,11 @@ export function WorldTrafficMap({ data }: WorldTrafficMapProps) {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-500">↓ {t("download")}:</span>
+                    <span className="traffic-download-text">↓ {t("download")}:</span>
                     <span>{formatBytes(tooltipData.download)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-purple-500">↑ {t("upload")}:</span>
+                    <span className="traffic-upload-text">↑ {t("upload")}:</span>
                     <span>{formatBytes(tooltipData.upload)}</span>
                   </div>
                   <div className="flex justify-between">

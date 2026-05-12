@@ -105,7 +105,6 @@ export default function DashboardPage() {
             activeBackendId={activeBackendId}
             backendStatus={backendStatus}
             onNavigate={(tab) => setActiveTab(tab as TabId)}
-            onOpenBackendDialog={() => setShowBackendDialog(true)}
           />
         </div>
       </main>

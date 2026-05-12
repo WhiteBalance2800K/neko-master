@@ -130,7 +130,9 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
             {/* License */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/50 border border-border/50">
               <span className="text-sm font-medium">{aboutT("license")}</span>
-              <span className="text-sm text-muted-foreground">MIT</span>
+              <span className="text-sm text-muted-foreground">
+                {aboutT("openSource")}
+              </span>
             </div>
 
             {/* GitHub Link */}
@@ -138,8 +140,8 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-3 rounded-xl bg-secondary/50 border border-border/50 hover:bg-secondary/80 hover:border-primary/30 transition-all group gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50 hover:bg-secondary/80 hover:border-primary/30 transition-all group">
+              <div className="flex items-center gap-3 min-w-0 w-full sm:flex-1">
                 <svg
                   viewBox="0 0 24 24"
                   className="w-5 h-5 fill-foreground shrink-0"
@@ -150,18 +152,21 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
                   <p className="text-sm font-medium truncate">
                     {aboutT("openSource")}
                   </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {GITHUB_REPO}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0">
                 {stars !== null && (
-                  <span className="flex items-center gap-1 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium rounded-full bg-amber-500/10 px-2 py-1">
                     <svg
                       viewBox="0 0 16 16"
                       className="w-3.5 h-3.5 fill-amber-500 shrink-0"
                       aria-hidden="true">
                       <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z" />
                     </svg>
-                    <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
+                    <span className="text-amber-500 tabular-nums">
                       {stars >= 1000
                         ? `${(stars / 1000).toFixed(1)}k`
                         : stars}

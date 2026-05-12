@@ -103,10 +103,10 @@ export function CountryTrafficList({
               {/* Metrics + Share */}
               <div className="flex items-end justify-between text-xs">
                 <div className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-1 min-w-0">
-                  <span className="text-blue-500 tabular-nums whitespace-nowrap">
+                  <span className="traffic-download-text tabular-nums whitespace-nowrap">
                     ↓ {formatBytes(country.totalDownload)}
                   </span>
-                  <span className="text-purple-500 tabular-nums whitespace-nowrap">
+                  <span className="traffic-upload-text tabular-nums whitespace-nowrap">
                     ↑ {formatBytes(country.totalUpload)}
                   </span>
                   <span className="inline-flex items-center gap-1 text-muted-foreground tabular-nums whitespace-nowrap">

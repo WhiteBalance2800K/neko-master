@@ -396,13 +396,13 @@ export function InteractiveDeviceStats({
                       <div className="pl-7 space-y-1">
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden flex">
                           <div
-                            className="h-full bg-blue-500 dark:bg-blue-400"
+                            className="h-full traffic-download-bg"
                             style={{
                               width: `${item.value > 0 ? (item.download / item.value) * barPercent : 0}%`,
                             }}
                           />
                           <div
-                            className="h-full bg-purple-500 dark:bg-purple-400"
+                            className="h-full traffic-upload-bg"
                             style={{
                               width: `${item.value > 0 ? (item.upload / item.value) * barPercent : 0}%`,
                             }}
@@ -410,10 +410,10 @@ export function InteractiveDeviceStats({
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                            <span className="text-blue-500 dark:text-blue-400 whitespace-nowrap">
+                            <span className="traffic-download-text whitespace-nowrap">
                               ↓ {formatBytes(item.download)}
                             </span>
-                            <span className="text-purple-500 dark:text-purple-400 whitespace-nowrap">
+                            <span className="traffic-upload-text whitespace-nowrap">
                               ↑ {formatBytes(item.upload)}
                             </span>
                             <span className="flex items-center gap-1 tabular-nums">
@@ -507,13 +507,13 @@ export function InteractiveDeviceStats({
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                  <span className="text-blue-500">
+                                  <span className="traffic-download-text">
                                     Download
                                   </span>
                                   <span>{formatBytes(item.download)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                  <span className="text-purple-500">
+                                  <span className="traffic-upload-text">
                                     Upload
                                   </span>
                                   <span>{formatBytes(item.upload)}</span>

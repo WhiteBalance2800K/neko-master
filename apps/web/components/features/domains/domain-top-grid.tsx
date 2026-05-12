@@ -115,8 +115,8 @@ export function DomainTopGrid({ data, limit = 5, onViewAll }: DomainTopGridProps
               {/* Row 2: Stats */}
               <div className="flex items-center justify-between text-xs text-muted-foreground pl-7">
                 <div className="flex items-center gap-3">
-                  <span className="text-blue-500">↓ {formatBytes(domain.totalDownload)}</span>
-                  <span className="text-purple-500">↑ {formatBytes(domain.totalUpload)}</span>
+                  <span className="traffic-download-text">↓ {formatBytes(domain.totalDownload)}</span>
+                  <span className="traffic-upload-text">↑ {formatBytes(domain.totalUpload)}</span>
                 </div>
                 <span className="flex items-center gap-1">
                   <Link2 className="w-3 h-3" />

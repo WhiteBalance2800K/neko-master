@@ -734,7 +734,7 @@ export function BackendConfigDialog({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "backends" | "bark" | "database" | "preferences" | "security"
+    "backends" | "appearance" | "bark" | "database" | "preferences" | "security"
   >("backends");
   const { settings, setSettings } = useSettings();
   const [appearanceDraft, setAppearanceDraft] = useState<UserSettings>(settings);
@@ -1639,6 +1639,13 @@ export function BackendConfigDialog({
                 {t("preferencesTab")}
               </Button>
               <Button
+                variant={activeTab === "appearance" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setActiveTab("appearance")}>
+                <Palette className="w-4 h-4 mr-2" />
+                {t("appearanceColors")}
+              </Button>
+              <Button
                 variant={activeTab === "bark" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setActiveTab("bark")}>
@@ -2309,35 +2316,6 @@ export function BackendConfigDialog({
                   />
                 </div>
 
-                {/* Appearance Colors */}
-                <div className="p-4 rounded-lg border bg-card space-y-5">
-                  <div>
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <Palette className="w-4 h-4" />
-                      {t("appearanceColors")}
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      {t("appearanceColorsDescription")}
-                    </p>
-                  </div>
-
-                  <ColorSwatchPicker
-                    label={t("backgroundColor")}
-                    value={appearanceDraft.backgroundColor}
-                    onChange={(value) => previewAppearanceSetting({ backgroundColor: value })}
-                  />
-                  <ColorSwatchPicker
-                    label={t("downloadColor")}
-                    value={appearanceDraft.downloadColor}
-                    onChange={(value) => previewAppearanceSetting({ downloadColor: value })}
-                  />
-                  <ColorSwatchPicker
-                    label={t("uploadColor")}
-                    value={appearanceDraft.uploadColor}
-                    onChange={(value) => previewAppearanceSetting({ uploadColor: value })}
-                  />
-                </div>
-
                 {/* GeoIP Lookup Provider */}
                 <div className="p-4 rounded-lg border bg-card space-y-4">
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
@@ -2414,6 +2392,37 @@ export function BackendConfigDialog({
                       })}
                     </p>
                   )}
+                </div>
+
+              </div>
+            ) : activeTab === "appearance" ? (
+              <div className="space-y-6">
+                <div className="p-4 rounded-lg border bg-card space-y-5">
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <Palette className="w-4 h-4" />
+                      {t("appearanceColors")}
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {t("appearanceColorsDescription")}
+                    </p>
+                  </div>
+
+                  <ColorSwatchPicker
+                    label={t("backgroundColor")}
+                    value={appearanceDraft.backgroundColor}
+                    onChange={(value) => previewAppearanceSetting({ backgroundColor: value })}
+                  />
+                  <ColorSwatchPicker
+                    label={t("downloadColor")}
+                    value={appearanceDraft.downloadColor}
+                    onChange={(value) => previewAppearanceSetting({ downloadColor: value })}
+                  />
+                  <ColorSwatchPicker
+                    label={t("uploadColor")}
+                    value={appearanceDraft.uploadColor}
+                    onChange={(value) => previewAppearanceSetting({ uploadColor: value })}
+                  />
                 </div>
 
                 <div className="flex justify-end">

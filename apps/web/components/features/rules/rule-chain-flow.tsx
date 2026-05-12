@@ -300,10 +300,10 @@ const MergedChainNodeComponent = memo(function MergedChainNodeComponent({
             </span>
           </div>
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="text-blue-500">
+            <span className="traffic-download-text">
               ↓ {formatBytes(data.totalDownload)}
             </span>
-            <span className="text-purple-500">
+            <span className="traffic-upload-text">
               ↑ {formatBytes(data.totalUpload)}
             </span>
           </div>
@@ -346,10 +346,10 @@ const MergedChainNodeComponent = memo(function MergedChainNodeComponent({
             </span>
           </div>
           <div className="flex items-center gap-3 text-[11px]">
-            <span className="text-orange-600 dark:text-orange-400">
+            <span className="traffic-download-text">
               ↓ {formatBytes(data.totalDownload)}
             </span>
-            <span className="text-orange-500/70 dark:text-orange-400/60">
+            <span className="traffic-upload-text">
               ↑ {formatBytes(data.totalUpload)}
             </span>
           </div>
@@ -380,10 +380,10 @@ const MergedChainNodeComponent = memo(function MergedChainNodeComponent({
           </span>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          <span className="text-blue-500">
+          <span className="traffic-download-text">
             ↓ {formatBytes(data.totalDownload)}
           </span>
-          <span className="text-purple-500">
+          <span className="traffic-upload-text">
             ↑ {formatBytes(data.totalUpload)}
           </span>
         </div>

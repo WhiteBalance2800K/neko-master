@@ -69,11 +69,11 @@ export function CountryTrafficChart({ data }: CountryTrafficChartProps) {
               <span className="font-medium">{formatBytes(item.value)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-blue-500">↓ {mapT("download")}:</span>
+              <span className="traffic-download-text">↓ {mapT("download")}:</span>
               <span>{formatBytes(item.download)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-purple-500">↑ {mapT("upload")}:</span>
+              <span className="traffic-upload-text">↑ {mapT("upload")}:</span>
               <span>{formatBytes(item.upload)}</span>
             </div>
             <div className="flex justify-between gap-4">
@@ -158,10 +158,10 @@ export function CountryTrafficChart({ data }: CountryTrafficChartProps) {
 
                   {/* Download/Upload row */}
                   <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-blue-500 tabular-nums">
+                    <span className="traffic-download-text tabular-nums">
                       ↓ {formatBytes(item.download)}
                     </span>
-                    <span className="text-purple-500 tabular-nums">
+                    <span className="traffic-upload-text tabular-nums">
                       ↑ {formatBytes(item.upload)}
                     </span>
                   </div>

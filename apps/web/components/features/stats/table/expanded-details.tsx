@@ -124,11 +124,11 @@ function TrafficBar({
   return (
     <div className="w-full h-1.5 rounded-full bg-secondary/80 mb-1.5 overflow-hidden flex">
       <div
-        className="h-full bg-blue-500 transition-all"
+        className="h-full traffic-download-bg transition-all"
         style={{ width: `${Math.max(percent * (downloadPercent / 100), 0.5)}%` }}
       />
       <div
-        className="h-full bg-purple-500 transition-all"
+        className="h-full traffic-upload-bg transition-all"
         style={{ width: `${Math.max(percent * (uploadPercent / 100), 0.5)}%` }}
       />
     </div>
@@ -257,8 +257,8 @@ function ProxyTrafficCards({
               uploadPercent={uploadPercent}
             />
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] tabular-nums">
-              <span className="text-blue-500">↓ {formatBytes(ps.totalDownload)}</span>
-              <span className="text-purple-500">↑ {formatBytes(ps.totalUpload)}</span>
+              <span className="traffic-download-text">↓ {formatBytes(ps.totalDownload)}</span>
+              <span className="traffic-upload-text">↑ {formatBytes(ps.totalUpload)}</span>
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 <Link2 className="h-3 w-3" />
                 {formatNumber(ps.totalConnections)}
@@ -417,8 +417,8 @@ export function DomainExpandedDetails({
                     />
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
                       <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] tabular-nums">
-                        <span className="text-blue-500">↓ {formatBytes(ipStat.totalDownload)}</span>
-                        <span className="text-purple-500">↑ {formatBytes(ipStat.totalUpload)}</span>
+                        <span className="traffic-download-text">↓ {formatBytes(ipStat.totalDownload)}</span>
+                        <span className="traffic-upload-text">↑ {formatBytes(ipStat.totalUpload)}</span>
                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                           <Link2 className="h-3 w-3" />
                           {formatNumber(ipStat.totalConnections)}
@@ -626,8 +626,8 @@ export function IPExpandedDetails({
                       uploadPercent={uploadPercent}
                     />
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] tabular-nums">
-                      <span className="text-blue-500">↓ {formatBytes(domain.totalDownload)}</span>
-                      <span className="text-purple-500">↑ {formatBytes(domain.totalUpload)}</span>
+                      <span className="traffic-download-text">↓ {formatBytes(domain.totalDownload)}</span>
+                      <span className="traffic-upload-text">↑ {formatBytes(domain.totalUpload)}</span>
                       <span className="inline-flex items-center gap-1 text-muted-foreground">
                         <Link2 className="h-3 w-3" />
                         {formatNumber(domain.totalConnections)}
