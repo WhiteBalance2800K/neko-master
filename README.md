@@ -68,7 +68,7 @@
 ```yaml
 services:
   neko-master:
-    image: whitebalance2026/neko-master:v1.6
+    image: whitebalance2026/neko-master:v1.9.0
     container_name: neko-master
     restart: unless-stopped
     ports:
@@ -116,7 +116,7 @@ docker run -d \
   -v "$(pwd)/geoip:/app/data/geoip:ro" \
   -e COOKIE_SECRET="$COOKIE_SECRET" \
   --restart unless-stopped \
-  whitebalance2026/neko-master:v1.6
+  whitebalance2026/neko-master:v1.9.0
 ```
 
 ### 源码运行

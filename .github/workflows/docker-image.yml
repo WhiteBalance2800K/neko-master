@@ -26,9 +26,7 @@ jobs:
         shell: bash
         run: |
           version="$(node -p "require('./package.json').version")"
-          major_minor="$(node -p "const v=require('./package.json').version.split('.'); `${v[0]}.${v[1]}`")"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "major_minor=${major_minor}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -50,7 +48,6 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
-            type=raw,value=v${{ steps.pkg.outputs.major_minor }},enable=${{ github.ref_name == 'main' }}
             type=raw,value=v${{ steps.pkg.outputs.version }},enable=${{ github.ref_name == 'main' }}
             type=ref,event=tag
             type=ref,event=pr
